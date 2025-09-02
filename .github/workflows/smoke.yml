@@ -1,0 +1,52 @@
+name: Smoke
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  app-lint-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install root deps
+        run: npm ci
+
+      - name: Install app deps
+        run: npm ci
+        working-directory: app
+
+      - name: Lint (app)
+        run: npm run lint
+        working-directory: app
+
+      - name: Format check (app)
+        run: npm run format:check
+        working-directory: app
+
+      - name: Build (app)
+        run: npm run build
+        working-directory: app
+
+  tauri-cargo-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cargo check
+        run: cargo check --manifest-path src-tauri/Cargo.toml
+
