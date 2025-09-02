@@ -8,6 +8,9 @@ use std::sync::{Arc, Mutex, atomic::{AtomicBool, Ordering}};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 use rosc::{encoder, OscMessage, OscPacket, OscType};
+use std::fs;
+use std::path::PathBuf;
+use std::env;
 
 struct SenderCtrl {
   stop: Arc<AtomicBool>,
@@ -85,6 +88,53 @@ fn osc_stop(state: tauri::State<AppState>) -> Result<(), String> {
   Ok(())
 }
 
+fn config_file_path() -> PathBuf {
+  // APPDATA (Windows) → HOME/.config (Unix) → current dir
+  let mut base = if let Ok(dir) = env::var("APPDATA") {
+    PathBuf::from(dir)
+  } else if let Ok(home) = env::var("HOME") {
+    let mut p = PathBuf::from(home);
+    p.push(".config");
+    p
+  } else {
+    PathBuf::from(".")
+  };
+  base.push("MotionCast");
+  let _ = fs::create_dir_all(&base);
+  base.push("config.json");
+  base
+}
+
+#[tauri::command]
+fn config_load() -> Result<String, String> {
+  let path = config_file_path();
+  match fs::read_to_string(&path) {
+    Ok(s) => {
+      // validate JSON
+      match serde_json::from_str::<serde_json::Value>(&s) {
+        Ok(_) => Ok(s),
+        Err(e) => {
+          // backup and return defaults
+          let _ = fs::copy(&path, path.with_extension("json.bak"));
+          Ok("{}".to_string())
+        }
+      }
+    }
+    Err(_) => Ok("{}".to_string()),
+  }
+}
+
+#[tauri::command]
+fn config_save(content: String) -> Result<(), String> {
+  // validate
+  let v: serde_json::Value = serde_json::from_str(&content).map_err(|e| format!("無効なJSONです: {}", e))?;
+  let path = config_file_path();
+  let tmp = path.with_extension("json.tmp");
+  fs::write(&tmp, content.as_bytes()).map_err(|e| format!("一時ファイル書き込みに失敗しました: {}", e))?;
+  fs::rename(&tmp, &path).map_err(|e| format!("保存に失敗しました: {}", e))?;
+  Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
@@ -99,7 +149,7 @@ pub fn run() {
       Ok(())
     })
     .manage(AppState::default())
-    .invoke_handler(tauri::generate_handler![ping, osc_start, osc_stop])
+    .invoke_handler(tauri::generate_handler![ping, osc_start, osc_stop, config_load, config_save])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }

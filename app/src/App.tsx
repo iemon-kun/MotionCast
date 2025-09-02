@@ -5,6 +5,7 @@ import { VrmPlaceholder } from "./features/vrm/VrmPlaceholder";
 import { VrmViewer } from "./features/vrm/VrmViewer";
 import { IpcPing } from "./features/ipc/IpcPing";
 import { OscTest } from "./features/osc/OscTest";
+import { saveLocalStorageToConfig } from "./lib/config";
 
 function App() {
   const [showSidebar, setShowSidebar] = useState(true);
@@ -22,7 +23,14 @@ function App() {
         </button>
         <h1 className="app-title">MotionCast</h1>
         <div className="spacer" />
-        <button className="btn">保存</button>
+        <button
+          className="btn"
+          onClick={async () => {
+            await saveLocalStorageToConfig().catch(() => {});
+          }}
+        >
+          保存
+        </button>
       </header>
 
       <div className="app-container">
