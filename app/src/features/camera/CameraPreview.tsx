@@ -21,6 +21,27 @@ export function CameraPreview() {
       return "";
     }
   });
+  const [resolution, setResolution] = useState<string>(() => {
+    try {
+      return localStorage.getItem("camera.resolution") || "1280x720";
+    } catch {
+      return "1280x720";
+    }
+  });
+  const [fps, setFps] = useState<number>(() => {
+    try {
+      const saved = Number(localStorage.getItem("camera.fps"));
+      return Number.isFinite(saved) && saved > 0 ? saved : 30;
+    } catch {
+      return 30;
+    }
+  });
+
+  const parseResolution = useCallback((res: string): { width: number; height: number } => {
+    const m = res.match(/^(\d+)x(\d+)$/);
+    if (!m) return { width: 1280, height: 720 };
+    return { width: Number(m[1]), height: Number(m[2]) };
+  }, []);
 
   const stop = useCallback(() => {
     if (stream) {
@@ -31,17 +52,21 @@ export function CameraPreview() {
   }, [stream]);
 
   const start = useCallback(
-    async (opts: StartOptions = { width: 1280, height: 720, fps: 30 }) => {
+    async (opts?: StartOptions) => {
       try {
         setError(null);
         // 既存ストリームがあれば停止
         if (stream) {
           for (const track of stream.getTracks()) track.stop();
         }
+        const { width, height } = parseResolution(
+          opts?.width && opts?.height ? `${opts.width}x${opts.height}` : resolution,
+        );
+        const reqFps = opts?.fps ?? fps;
         const videoConstraints: MediaTrackConstraints = {
-          width: opts.width,
-          height: opts.height,
-          frameRate: opts.fps,
+          width: { ideal: width },
+          height: { ideal: height },
+          frameRate: { ideal: reqFps },
         };
         if (selectedId) {
           // exact指定で選択デバイスを優先
@@ -71,7 +96,7 @@ export function CameraPreview() {
         setActive(false);
       }
     },
-    [stream, selectedId],
+    [stream, selectedId, resolution, fps, parseResolution],
   );
 
   useEffect(() => {
@@ -140,6 +165,49 @@ export function CameraPreview() {
             ))}
           </select>
         </label>
+        <label>
+          <span className="sr-only">解像度</span>
+          <select
+            value={resolution}
+            onChange={async (e) => {
+              const v = e.target.value;
+              setResolution(v);
+              try {
+                localStorage.setItem("camera.resolution", v);
+              } catch {
+                void 0;
+              }
+              if (active) await start();
+            }}
+          >
+            <option value="1920x1080">1920x1080</option>
+            <option value="1280x720">1280x720</option>
+            <option value="960x540">960x540</option>
+          </select>
+        </label>
+        <label>
+          <span className="sr-only">FPS</span>
+          <input
+            type="number"
+            min={15}
+            max={60}
+            step={1}
+            value={fps}
+            onChange={(e) => {
+              const v = Math.max(15, Math.min(60, Number(e.target.value) || 0));
+              setFps(v);
+              try {
+                localStorage.setItem("camera.fps", String(v));
+              } catch {
+                void 0;
+              }
+            }}
+            onBlur={async () => {
+              if (active) await start();
+            }}
+            className="input-number"
+          />
+        </label>
         <button className="btn" onClick={() => refreshDevices()}>
           デバイス更新
         </button>
@@ -149,7 +217,7 @@ export function CameraPreview() {
           </button>
         ) : (
           <button className="btn primary" onClick={() => start()}>
-            カメラ開始（1280x720/30fps）
+            カメラ開始（{resolution}/{fps}fps）
           </button>
         )}
       </div>

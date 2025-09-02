@@ -32,6 +32,14 @@
   margin-bottom: 8px;
 }
 
+.camera-toolbar select,
+.camera-toolbar .input-number {
+  padding: 6px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+}
+
 .btn {
   padding: 6px 10px;
   border: 1px solid #d1d5db;
