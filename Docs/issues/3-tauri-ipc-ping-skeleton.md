@@ -12,10 +12,10 @@
 - 簡易ログ出力（ON/OFF切替は後続）
 
 ### ゴール / 完了条件(Acceptance Criteria)
-- [ ] `invoke('ping')`で期待レスポンスを受け取れる
-- [ ] 失敗時にユーザ向けエラーメッセージを表示
-- [ ] TS側で型安全に呼び出せる（型定義あり）
-- [ ] 実装/利用サンプルが1箇所以上存在
+- [x] `invoke('ping')`で期待レスポンスを受け取れる（`pong: <payload>`）
+- [x] 失敗時にユーザ向けエラーメッセージを表示（IpcPing内で例外処理）
+- [x] TS側で型安全に呼び出せる（`@tauri-apps/api`の型を使用）
+- [x] 実装/利用サンプルが1箇所以上存在（`app/src/features/ipc/IpcPing.tsx`）
 
 ### テスト観点
 - ユニット: なし（薄いラッパのため）
@@ -24,3 +24,19 @@
 (必要なら) 要確認事項:
 - コマンド登録方針（ファイル分割/命名）
 
+---
+
+## 実装メモ（v0 完了）
+
+- Rust: `src-tauri/src/lib.rs`
+  - `#[tauri::command] fn ping(payload: String) -> String` を実装
+  - `.invoke_handler(tauri::generate_handler![ping])` に登録
+- Frontend: `@tauri-apps/api` を導入し `invoke<string>('ping', { payload })`
+  - UI: `app/src/features/ipc/IpcPing.tsx`（入力→送信→結果/エラー表示）
+  - 埋め込み: `App.tsx` の3カラム目に「デバッグ: IPC Ping」を配置
+
+検証手順
+1. `npm run dev` でアプリ起動
+2. 「デバッグ: IPC Ping」で入力し「Ping」を押下
+3. 結果が `pong: <入力>` で表示されること
+4. 異常系（バックエンド切断など）でエラーメッセージが表示されること
