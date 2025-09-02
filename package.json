@@ -1,0 +1,30 @@
+{
+  "name": "motioncast",
+  "version": "1.0.0",
+  "description": "VRMトラッキングの数値をローカルで推定し、VRMビューア表示とUDP/OSC送信を行うデスクトップアプリ（Tauri + React + TypeScript）。ローカル完結・軽量配布・無料運用を重視する。",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "tauri": "tauri",
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "app:dev": "npm run dev --prefix app",
+    "app:build": "npm run build --prefix app"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/iemon-kun/MotionCast.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/iemon-kun/MotionCast/issues"
+  },
+  "homepage": "https://github.com/iemon-kun/MotionCast#readme",
+  "private": "true",
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.8.4"
+  }
+}
