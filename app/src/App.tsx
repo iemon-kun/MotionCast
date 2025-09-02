@@ -5,6 +5,7 @@ import { VrmPlaceholder } from "./features/vrm/VrmPlaceholder";
 import { VrmViewer } from "./features/vrm/VrmViewer";
 import { IpcPing } from "./features/ipc/IpcPing";
 import { OscTest } from "./features/osc/OscTest";
+import { EstimatorTest } from "./features/estimation/EstimatorTest";
 import { saveLocalStorageToConfig } from "./lib/config";
 
 function App() {
@@ -60,6 +61,10 @@ function App() {
               <div className="viewer-box" aria-label="VRMビューア領域">
                 <VrmViewer />
               </div>
+            </div>
+            <div className="box">
+              <h2 className="section-title">推定テスト（スタブ）</h2>
+              <EstimatorTest />
             </div>
             <div className="box">
               <h2 className="section-title">デバッグ: IPC Ping</h2>

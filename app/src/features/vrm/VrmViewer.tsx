@@ -34,6 +34,9 @@ export function VrmViewer() {
 
   const runningRef = useRef<boolean>(true);
   const fpsRef = useRef<number>(60);
+  const poseRef = useRef<{ yaw: number; pitch: number; roll: number } | null>(
+    null,
+  );
   useEffect(() => {
     runningRef.current = running;
   }, [running]);
@@ -93,6 +96,11 @@ export function VrmViewer() {
         update?: (dt: number) => void;
       } | null;
       v?.update?.(dt);
+      // Apply simple head rotation by rotating the whole VRM scene for now
+      const p = poseRef.current;
+      if (p && vrmRef.current) {
+        vrmRef.current.scene.rotation.set(p.pitch, p.yaw, p.roll);
+      }
       renderer.render(scene, camera);
     };
     animate();
@@ -150,6 +158,16 @@ export function VrmViewer() {
     };
     window.addEventListener("motioncast:vrm-select", onSelect as EventListener);
     window.addEventListener("motioncast:vrm-reset", onReset);
+    const onPose = (ev: Event) => {
+      const ce = ev as CustomEvent<{
+        yaw: number;
+        pitch: number;
+        roll: number;
+      }>;
+      if (!ce.detail) return;
+      poseRef.current = ce.detail;
+    };
+    window.addEventListener("motioncast:pose-update", onPose as EventListener);
 
     return () => {
       cancelAnimationFrame(raf);
@@ -159,6 +177,10 @@ export function VrmViewer() {
         onSelect as EventListener,
       );
       window.removeEventListener("motioncast:vrm-reset", onReset);
+      window.removeEventListener(
+        "motioncast:pose-update",
+        onPose as EventListener,
+      );
       el.removeChild(renderer.domElement);
       geo.dispose();
       mat.dispose();
