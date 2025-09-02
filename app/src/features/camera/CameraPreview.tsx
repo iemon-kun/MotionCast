@@ -21,6 +21,14 @@ export function CameraPreview() {
       return "";
     }
   });
+  const [visible, setVisible] = useState<boolean>(() => {
+    try {
+      const raw = localStorage.getItem("camera.visible");
+      return raw == null ? true : raw !== "false";
+    } catch {
+      return true;
+    }
+  });
   const [resolution, setResolution] = useState<string>(() => {
     try {
       return localStorage.getItem("camera.resolution") || "1280x720";
@@ -148,6 +156,25 @@ export function CameraPreview() {
   return (
     <section aria-label="カメラプレビュー" className="camera-section">
       <div className="camera-toolbar">
+        <button
+          className="btn"
+          aria-pressed={visible}
+          onClick={() => {
+            const next = !visible;
+            setVisible(next);
+            try {
+              localStorage.setItem("camera.visible", String(next));
+            } catch {
+              void 0;
+            }
+            if (!next && active) {
+              // 非表示にする際はストリームを停止して負荷を下げる
+              stop();
+            }
+          }}
+        >
+          {visible ? "カメラ非表示" : "カメラ表示"}
+        </button>
         <label>
           <span className="sr-only">カメラデバイス</span>
           <select
@@ -226,14 +253,16 @@ export function CameraPreview() {
           </button>
         )}
       </div>
-      {error && (
+      {visible && error && (
         <p className="camera-error" role="alert">
           {error}
         </p>
       )}
-      <div className="camera-preview">
-        <video ref={videoRef} muted playsInline className="camera-video" />
-      </div>
+      {visible && (
+        <div className="camera-preview">
+          <video ref={videoRef} muted playsInline className="camera-video" />
+        </div>
+      )}
     </section>
   );
 }
