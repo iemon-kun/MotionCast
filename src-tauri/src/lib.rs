@@ -29,6 +29,7 @@ struct SenderCtrl {
 struct AppState {
   sender: Mutex<Option<SenderCtrl>>,
   pose: Arc<Mutex<Pose>>, // latest pose shared between IPC and sender thread
+  schema: Arc<Mutex<Schema>>, // current OSC schema
 }
 
 impl Default for AppState {
@@ -36,8 +37,15 @@ impl Default for AppState {
     Self {
       sender: Mutex::new(None),
       pose: Arc::new(Mutex::new(Pose::default())),
+      schema: Arc::new(Mutex::new(Schema::Minimal)),
     }
   }
+}
+
+#[derive(Clone, Copy, Debug)]
+enum Schema {
+  Minimal,
+  ClusterBasic,
 }
 
 #[tauri::command]
@@ -53,6 +61,7 @@ fn osc_start(state: tauri::State<AppState>, addr: String, port: u16, rate_hz: u3
     let stop_clone = stop.clone();
     let target = format!("{}:{}", addr, port);
     let shared_pose = state.pose.clone();
+    let shared_schema = state.schema.clone();
     let handle = thread::spawn(move || {
       let sock = match UdpSocket::bind("0.0.0.0:0") {
         Ok(s) => s,
@@ -72,17 +81,24 @@ fn osc_start(state: tauri::State<AppState>, addr: String, port: u16, rate_hz: u3
           }
         };
 
-        let packets = vec![
-          OscPacket::Message(OscMessage { addr: "/mc/ping".to_string(), args: vec![OscType::String("ok".into())] }),
-          OscPacket::Message(OscMessage { addr: "/mc/blink".to_string(), args: vec![OscType::Float(blink)] }),
-          OscPacket::Message(OscMessage { addr: "/mc/mouth".to_string(), args: vec![OscType::Float(mouth)] }),
-          OscPacket::Message(OscMessage { addr: "/mc/head".to_string(), args: vec![OscType::Float(yaw), OscType::Float(pitch), OscType::Float(roll)] }),
-        ];
-
-        for p in packets {
-          if let Ok(buf) = encoder::encode(&p) {
-            let _ = sock.send_to(&buf, &target);
-          }
+        // Build content according to schema; convert radians to degrees for readability
+        let (yaw_deg, pitch_deg, roll_deg) = (yaw.to_degrees(), pitch.to_degrees(), roll.to_degrees());
+        let schema = shared_schema.lock().ok().map(|g| *g).unwrap_or(Schema::Minimal);
+        let content: Vec<OscPacket> = match schema {
+          Schema::Minimal => vec![
+            OscPacket::Message(OscMessage { addr: "/mc/ping".to_string(), args: vec![OscType::String("ok".into())] }),
+            OscPacket::Message(OscMessage { addr: "/mc/blink".to_string(), args: vec![OscType::Float(blink)] }),
+            OscPacket::Message(OscMessage { addr: "/mc/mouth".to_string(), args: vec![OscType::Float(mouth)] }),
+            OscPacket::Message(OscMessage { addr: "/mc/head".to_string(), args: vec![OscType::Float(yaw_deg), OscType::Float(pitch_deg), OscType::Float(roll_deg)] }),
+          ],
+          Schema::ClusterBasic => vec![
+            OscPacket::Message(OscMessage { addr: "/cluster/face/blink".to_string(), args: vec![OscType::Float(blink)] }),
+            OscPacket::Message(OscMessage { addr: "/cluster/face/jawOpen".to_string(), args: vec![OscType::Float(mouth)] }),
+            OscPacket::Message(OscMessage { addr: "/cluster/head/euler".to_string(), args: vec![OscType::Float(yaw_deg), OscType::Float(pitch_deg), OscType::Float(roll_deg)] }),
+          ],
+        };
+        for p in content {
+          if let Ok(buf) = encoder::encode(&p) { let _ = sock.send_to(&buf, &target); }
         }
 
         next += interval;
@@ -124,6 +140,17 @@ fn osc_update(state: tauri::State<AppState>, pose: Pose) -> Result<(), String> {
   Ok(())
 }
 
+#[tauri::command]
+fn osc_set_schema(state: tauri::State<AppState>, schema: String) -> Result<(), String> {
+  let mut s = state.schema.lock().map_err(|_| "lock error")?;
+  let normalized = schema.to_lowercase();
+  *s = match normalized.as_str() {
+    "cluster" | "cluster-basic" | "cluster_basic" => Schema::ClusterBasic,
+    _ => Schema::Minimal,
+  };
+  Ok(())
+}
+
 fn config_file_path() -> PathBuf {
   // APPDATA (Windows) → HOME/.config (Unix) → current dir
   let mut base = if let Ok(dir) = env::var("APPDATA") {
@@ -149,7 +176,7 @@ fn config_load() -> Result<String, String> {
       // validate JSON
       match serde_json::from_str::<serde_json::Value>(&s) {
         Ok(_) => Ok(s),
-        Err(e) => {
+        Err(_e) => {
           // backup and return defaults
           let _ = fs::copy(&path, path.with_extension("json.bak"));
           Ok("{}".to_string())
@@ -163,7 +190,7 @@ fn config_load() -> Result<String, String> {
 #[tauri::command]
 fn config_save(content: String) -> Result<(), String> {
   // validate
-  let v: serde_json::Value = serde_json::from_str(&content).map_err(|e| format!("無効なJSONです: {}", e))?;
+  let _v: serde_json::Value = serde_json::from_str(&content).map_err(|e| format!("無効なJSONです: {}", e))?;
   let path = config_file_path();
   let tmp = path.with_extension("json.tmp");
   fs::write(&tmp, content.as_bytes()).map_err(|e| format!("一時ファイル書き込みに失敗しました: {}", e))?;
@@ -185,7 +212,7 @@ pub fn run() {
       Ok(())
     })
     .manage(AppState::default())
-    .invoke_handler(tauri::generate_handler![ping, osc_start, osc_stop, osc_update, config_load, config_save])
+    .invoke_handler(tauri::generate_handler![ping, osc_start, osc_stop, osc_update, osc_set_schema, config_load, config_save])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }

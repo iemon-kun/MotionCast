@@ -27,6 +27,13 @@ export function OscTest() {
   });
   const [sending, setSending] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
+  const [schema, setSchema] = useState<string>(() => {
+    try {
+      return localStorage.getItem("osc.schema") || "minimal";
+    } catch {
+      return "minimal";
+    }
+  });
 
   useEffect(() => {
     return () => {
@@ -37,12 +44,14 @@ export function OscTest() {
   const start = async () => {
     setError("");
     try {
+      await invoke("osc_set_schema", { schema });
       await invoke("osc_start", { addr, port, rateHz: rate });
       setSending(true);
       try {
         localStorage.setItem("osc.addr", addr);
         localStorage.setItem("osc.port", String(port));
         localStorage.setItem("osc.rate", String(rate));
+        localStorage.setItem("osc.schema", schema);
       } catch {
         void 0;
       }
@@ -86,6 +95,14 @@ export function OscTest() {
           <option value="30">30fps</option>
           <option value="60">60fps</option>
         </select>
+        <select
+          value={schema}
+          onChange={(e) => setSchema(e.target.value)}
+          aria-label="送信スキーマ"
+        >
+          <option value="minimal">minimal</option>
+          <option value="cluster">cluster-basic</option>
+        </select>
         {sending ? (
           <button className="btn" onClick={stop}>
             停止
@@ -106,7 +123,9 @@ export function OscTest() {
         </div>
       )}
       <div className="ipc-row small">
-        アドレス: /mc/ping, /mc/blink, /mc/mouth, /mc/head(yaw,pitch,roll)
+        {schema === "minimal"
+          ? "アドレス: /mc/ping, /mc/blink, /mc/mouth, /mc/head(yawDeg,pitchDeg,rollDeg)"
+          : "アドレス: /cluster/face/blink, /cluster/face/jawOpen, /cluster/head/euler(yawDeg,pitchDeg,rollDeg)"}
       </div>
     </div>
   );
