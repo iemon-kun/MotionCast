@@ -3,6 +3,7 @@ import "./App.css";
 import { CameraPreview } from "./features/camera/CameraPreview";
 import { VrmPlaceholder } from "./features/vrm/VrmPlaceholder";
 import { VrmViewer } from "./features/vrm/VrmViewer";
+import { IpcPing } from "./features/ipc/IpcPing";
 
 function App() {
   const [showSidebar, setShowSidebar] = useState(true);
@@ -50,6 +51,10 @@ function App() {
               <div className="viewer-box" aria-label="VRMビューア領域">
                 <VrmViewer />
               </div>
+            </div>
+            <div className="box">
+              <h2 className="section-title">デバッグ: IPC Ping</h2>
+              <IpcPing />
             </div>
           </div>
 
