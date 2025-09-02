@@ -40,7 +40,7 @@ VRM 0.xモデルの読み込みとThree.js + three-vrmでの表示を実装し�
 - 組み込み: `App.tsx` のVRMビューア領域に `VrmViewer` を配置（プレースホルダUIの下）
 
 次段階 TODO
-- [ ] three-vrm を用いた VRM 0.x 読み込みの配線
+- [x] three-vrm を用いた VRM 0.x 読み込みの配線（ObjectURL 経由）
 - [ ] リソース破棄（VRM/テクスチャ/GLTFLoader）の管理
 - [ ] 描画負荷の最小化（pixelRatio上限/アニメ停止スイッチ等）
 
