@@ -1,0 +1,53 @@
+# ログファイル
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 依存関係ディレクトリ
+node_modules/
+/src/node_modules/ # フロントエンドのnode_modulesを明示的に無視
+
+# ビルド出力ディレクトリ
+dist/
+/src/dist/ # フロントエンドのビルド出力を明示的に無視
+target/
+/src-tauri/target/ # Rustバックエンドのビルド出力を明示的に無視
+
+# 環境変数ファイル
+.env
+.env.local
+.env.*.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# macOS固有ファイル
+.DS_Store
+
+# エディタ関連のディレクトリとファイル
+.vscode/ # VS Code固有の設定 (無視しない場合はコメントアウト)
+*.sublime-project
+*.sublime-workspace
+.idea/ # IntelliJ IDEA固有の設定
+
+# 一時ファイル
+*~
+#*#
+*.bak
+*.tmp
+*.swp
+*.swo
+
+# Tauri固有
+# Tauriはプラットフォーム固有のビルド成果物やキャッシュを生成します。
+# これらは通常`target/`内にありますが、他の一時ファイルがある場合もあります。
+# もし無視すべきTauri関連のビルド成果物が見つかった場合は、ここに追加してください。
+# 例: Tauriが`target`の外に`build`ディレクトリを作成する場合:
+# build/
+
+# その他の一般的な無視ファイル
+.parcel-cache/
+.eslintcache
+.prettierignore
