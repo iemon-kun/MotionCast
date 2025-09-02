@@ -93,6 +93,11 @@
   border-radius: 8px;
 }
 
+.viewer-canvas {
+  width: 100%;
+  height: 100%;
+}
+
 .vrm-actions {
   display: flex;
   gap: 8px;

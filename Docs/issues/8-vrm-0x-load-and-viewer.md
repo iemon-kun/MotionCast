@@ -33,6 +33,17 @@ VRM 0.xモデルの読み込みとThree.js + three-vrmでの表示を実装し�
   - 読み込み処理は未実装である旨を明示
 - 組み込み: `app/src/App.tsx` のVRMビューア枠に配置
 
+## 進捗 / 現状（v0.1 ビューア準備）
+
+- 依存追加: `three`, `@pixiv/three-vrm`（将来の0.x対応用）, 型定義 `@types/three`
+- ビューア枠: `app/src/features/vrm/VrmViewer.tsx` を追加（Three.js の最小枠・スピニングキューブ）
+- 組み込み: `App.tsx` のVRMビューア領域に `VrmViewer` を配置（プレースホルダUIの下）
+
+次段階 TODO
+- [ ] three-vrm を用いた VRM 0.x 読み込みの配線
+- [ ] リソース破棄（VRM/テクスチャ/GLTFLoader）の管理
+- [ ] 描画負荷の最小化（pixelRatio上限/アニメ停止スイッチ等）
+
 既知の制約/TODO
 - [ ] three/three-vrm の導入と実ファイル読み込み
 - [ ] VRM 0.x のみ対応を明示（1.0は対象外）

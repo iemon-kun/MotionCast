@@ -2,6 +2,7 @@ import { useState } from "react";
 import "./App.css";
 import { CameraPreview } from "./features/camera/CameraPreview";
 import { VrmPlaceholder } from "./features/vrm/VrmPlaceholder";
+import { VrmViewer } from "./features/vrm/VrmViewer";
 
 function App() {
   const [showSidebar, setShowSidebar] = useState(true);
@@ -46,11 +47,8 @@ function App() {
             <div className="box">
               <h2 className="section-title">VRMビューア</h2>
               <VrmPlaceholder />
-              <div
-                className="viewer-box"
-                aria-label="VRMビューア（プレースホルダ）"
-              >
-                <p>VRMビューア（プレースホルダ）</p>
+              <div className="viewer-box" aria-label="VRMビューア領域">
+                <VrmViewer />
               </div>
             </div>
           </div>
