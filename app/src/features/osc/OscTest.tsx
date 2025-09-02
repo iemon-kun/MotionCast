@@ -48,6 +48,15 @@ export function OscTest() {
       await invoke("osc_start", { addr, port, rateHz: rate });
       setSending(true);
       try {
+        window.dispatchEvent(
+          new CustomEvent("motioncast:osc-state", {
+            detail: { sending: true, addr, port, rate, schema },
+          }),
+        );
+      } catch {
+        /* noop */
+      }
+      try {
         localStorage.setItem("osc.addr", addr);
         localStorage.setItem("osc.port", String(port));
         localStorage.setItem("osc.rate", String(rate));
@@ -65,6 +74,15 @@ export function OscTest() {
     try {
       await invoke("osc_stop");
       setSending(false);
+      try {
+        window.dispatchEvent(
+          new CustomEvent("motioncast:osc-state", {
+            detail: { sending: false, addr, port, rate, schema },
+          }),
+        );
+      } catch {
+        /* noop */
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : "不明なエラー";
       setError(`送信停止に失敗しました: ${msg}`);
