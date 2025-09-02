@@ -31,11 +31,21 @@ cargo install tauri-cli
 ```
 
 ## セットアップ（初回）
-このリポジトリをクローン後、Docs の設計に沿って初期化を進める。
+このリポジトリをクローン後、依存をインストールする。
 - 参照: `Docs/issues/1-tauri-vite-react-ts-setup.md`
 - 参照: `Docs/02_アーキテクチャ設計書.md`
 
-現時点ではコード雛形を未生成。次ステップで Tauri + Vite + React + TS の最小テンプレートを追加予定。
+コマンド例:
+```
+# ルート（Tauri CLI など）
+npm ci
+
+# フロントエンド（Vite + React + TS）
+cd app
+npm ci
+```
+
+コード雛形は生成済み（`app/` にフロント、`src-tauri/` に Tauri）。
 
 ## 開発フロー（当面）
 1. 小さなタスク単位で変更（最小差分）
@@ -62,6 +72,19 @@ Refs: Docs/frontend_sample.html
 
 E2E/スモークテストの方針:
 - 参照: `Docs/issues/23-e2e-smoke-test-and-guide.md`
+
+## 使い方（開発）
+- 開発起動（Tauri + フロント同時）: `npm run dev`
+- フロント単体起動（ブラウザで確認）: `npm run app:dev`
+- Lint/整形（app/ 配下）:
+  - `cd app && npm run lint`
+  - `cd app && npm run format:check`
+
+## ビルド
+- デスクトップアプリのビルド: `npm run build`
+  - 生成物: `src-tauri/target/` 配下（OS/アーキテクチャ別）
+
+注意: macOS の配布にはコード署名/公証が必要になる場合がある（CI 設定は後続Issue）。
 
 ## 注意事項（セキュリティ/品質）
 - `.env` や個人情報はコミットしない
