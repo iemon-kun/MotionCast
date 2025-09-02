@@ -2,7 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { VRM, VRMLoaderPlugin, VRMUtils } from "@pixiv/three-vrm";
-import { VRMHumanBoneName } from "@pixiv/three-vrm-core";
+import {
+  VRMHumanBoneName,
+  VRMExpressionPresetName,
+} from "@pixiv/three-vrm-core";
 
 export function VrmViewer() {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -35,9 +38,13 @@ export function VrmViewer() {
 
   const runningRef = useRef<boolean>(true);
   const fpsRef = useRef<number>(60);
-  const poseRef = useRef<{ yaw: number; pitch: number; roll: number } | null>(
-    null,
-  );
+  const poseRef = useRef<{
+    yaw?: number;
+    pitch?: number;
+    roll?: number;
+    blink?: number;
+    mouth?: number;
+  } | null>(null);
   useEffect(() => {
     runningRef.current = running;
   }, [running]);
@@ -97,7 +104,7 @@ export function VrmViewer() {
         update?: (dt: number) => void;
       } | null;
       v?.update?.(dt);
-      // Apply head/neck rotation on humanoid bones if available
+      // Apply head/neck rotation & expressions if available
       const p = poseRef.current;
       const vrm = vrmRef.current;
       if (p && vrm) {
@@ -105,11 +112,25 @@ export function VrmViewer() {
         const head = humanoid?.getNormalizedBoneNode(VRMHumanBoneName.Head);
         const neck = humanoid?.getNormalizedBoneNode(VRMHumanBoneName.Neck);
         if (head) {
-          head.rotation.set(p.pitch, p.yaw, p.roll);
+          head.rotation.set(p.pitch ?? 0, p.yaw ?? 0, p.roll ?? 0);
         }
         if (neck) {
           // Neck follows with smaller weight for natural motion
-          neck.rotation.set(p.pitch * 0.4, p.yaw * 0.4, p.roll * 0.4);
+          neck.rotation.set(
+            (p.pitch ?? 0) * 0.4,
+            (p.yaw ?? 0) * 0.4,
+            (p.roll ?? 0) * 0.4,
+          );
+        }
+        const em = vrm.expressionManager;
+        if (em) {
+          const clamp01 = (x: number) => (x < 0 ? 0 : x > 1 ? 1 : x);
+          if (typeof p.blink === "number") {
+            em.setValue(VRMExpressionPresetName.Blink, clamp01(p.blink));
+          }
+          if (typeof p.mouth === "number") {
+            em.setValue(VRMExpressionPresetName.Aa, clamp01(p.mouth));
+          }
         }
       }
       renderer.render(scene, camera);
@@ -171,9 +192,11 @@ export function VrmViewer() {
     window.addEventListener("motioncast:vrm-reset", onReset);
     const onPose = (ev: Event) => {
       const ce = ev as CustomEvent<{
-        yaw: number;
-        pitch: number;
-        roll: number;
+        yaw?: number;
+        pitch?: number;
+        roll?: number;
+        blink?: number;
+        mouth?: number;
       }>;
       if (!ce.detail) return;
       poseRef.current = ce.detail;
