@@ -49,3 +49,15 @@ VRM 0.xモデルの読み込みとThree.js + three-vrmでの表示を実装し�
 - [ ] VRM 0.x のみ対応を明示（1.0は対象外）
 - [ ] リセットでThreeリソース破棄（将来実装）
 - [ ] 低負荷モード/品質調整の検討
+
+## 進捗 / 現状（v0.2 負荷対策・描画制御）
+
+- 描画制御: ビューア右上に操作を追加（`viewer.running`）。描画停止/再開が可能
+- FPS固定: 30/45/60 を選択し固定FPSでレンダ（`viewer.targetFps`）
+- PixelRatio上限: 1.0/1.5/2.0 を選択し初期化時に反映（`viewer.pixelRatioCap`）
+- リソース破棄: 新VRM読込時に既存VRMを `VRMUtils.deepDispose` で破棄、ObjectURL を適切に `revokeObjectURL`
+
+今後の強化案
+- [ ] 非表示時の自動停止（`IntersectionObserver` でキャンバスが画面外の時に停止）
+- [ ] PixelRatio の動的反映（renderer を ref 化して選択直後に再設定）
+- [ ] GLTFLoader およびテクスチャの追加破棄（必要に応じて）
