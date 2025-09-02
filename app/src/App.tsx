@@ -6,6 +6,7 @@ import { VrmViewer } from "./features/vrm/VrmViewer";
 import { IpcPing } from "./features/ipc/IpcPing";
 import { OscTest } from "./features/osc/OscTest";
 import { EstimatorTest } from "./features/estimation/EstimatorTest";
+import { OscBridge } from "./features/osc/OscBridge";
 import { saveLocalStorageToConfig } from "./lib/config";
 
 function App() {
@@ -14,6 +15,7 @@ function App() {
 
   return (
     <main className="app-root">
+      <OscBridge />
       <header className="app-header" data-testid="header">
         <button
           className="btn"

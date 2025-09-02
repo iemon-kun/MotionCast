@@ -12,14 +12,32 @@ use std::fs;
 use std::path::PathBuf;
 use std::env;
 
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
+struct Pose {
+  yaw: f32,
+  pitch: f32,
+  roll: f32,
+  blink: f32,
+  mouth: f32,
+}
+
 struct SenderCtrl {
   stop: Arc<AtomicBool>,
   handle: Option<JoinHandle<()>>,
 }
 
-#[derive(Default)]
 struct AppState {
   sender: Mutex<Option<SenderCtrl>>,
+  pose: Arc<Mutex<Pose>>, // latest pose shared between IPC and sender thread
+}
+
+impl Default for AppState {
+  fn default() -> Self {
+    Self {
+      sender: Mutex::new(None),
+      pose: Arc::new(Mutex::new(Pose::default())),
+    }
+  }
 }
 
 #[tauri::command]
@@ -34,6 +52,7 @@ fn osc_start(state: tauri::State<AppState>, addr: String, port: u16, rate_hz: u3
     let stop = Arc::new(AtomicBool::new(false));
     let stop_clone = stop.clone();
     let target = format!("{}:{}", addr, port);
+    let shared_pose = state.pose.clone();
     let handle = thread::spawn(move || {
       let sock = match UdpSocket::bind("0.0.0.0:0") {
         Ok(s) => s,
@@ -41,16 +60,17 @@ fn osc_start(state: tauri::State<AppState>, addr: String, port: u16, rate_hz: u3
       };
       let rate = if rate_hz == 0 { 30 } else { rate_hz.min(240) };
       let interval = Duration::from_secs_f64(1.0 / (rate as f64));
-      let mut tick: u64 = 0;
       let mut next = Instant::now();
       loop {
         if stop_clone.load(Ordering::SeqCst) { break; }
-        // スタブ値: Blink/Mouth/Head(Yaw/Pitch/Roll)
-        let blink = ((tick % 120) as f32 / 120.0).sin().abs();
-        let mouth = (((tick + 30) % 120) as f32 / 120.0).sin().abs() * 0.6;
-        let yaw = (((tick) % 360) as f32).to_radians().sin() * 0.2;
-        let pitch = (((tick + 60) % 360) as f32).to_radians().sin() * 0.15;
-        let roll = (((tick + 120) % 360) as f32).to_radians().sin() * 0.1;
+        // 最新値を読み取り（短時間ロック）
+        let (yaw, pitch, roll, blink, mouth) = {
+          if let Ok(p) = shared_pose.lock() {
+            (p.yaw, p.pitch, p.roll, p.blink, p.mouth)
+          } else {
+            (0.0, 0.0, 0.0, 0.0, 0.0)
+          }
+        };
 
         let packets = vec![
           OscPacket::Message(OscMessage { addr: "/mc/ping".to_string(), args: vec![OscType::String("ok".into())] }),
@@ -65,7 +85,6 @@ fn osc_start(state: tauri::State<AppState>, addr: String, port: u16, rate_hz: u3
           }
         }
 
-        tick = tick.wrapping_add(1);
         next += interval;
         let now = Instant::now();
         if next > now { thread::sleep(next - now); } else { next = now; }
@@ -84,6 +103,23 @@ fn osc_stop(state: tauri::State<AppState>) -> Result<(), String> {
       ctrl.stop.store(true, Ordering::SeqCst);
       if let Some(h) = ctrl.handle { let _ = h.join(); }
     }
+  }
+  Ok(())
+}
+
+#[tauri::command]
+fn osc_update(state: tauri::State<AppState>, pose: Pose) -> Result<(), String> {
+  let clamp01 = |x: f32| if x < 0.0 { 0.0 } else if x > 1.0 { 1.0 } else { x };
+  let clamp_rad = |x: f32| {
+    let limit = std::f32::consts::FRAC_PI_2; // ±90deg
+    if x < -limit { -limit } else if x > limit { limit } else { x }
+  };
+  if let Ok(mut p) = state.pose.lock() {
+    p.yaw = clamp_rad(pose.yaw);
+    p.pitch = clamp_rad(pose.pitch);
+    p.roll = clamp_rad(pose.roll);
+    p.blink = clamp01(pose.blink);
+    p.mouth = clamp01(pose.mouth);
   }
   Ok(())
 }
@@ -149,7 +185,7 @@ pub fn run() {
       Ok(())
     })
     .manage(AppState::default())
-    .invoke_handler(tauri::generate_handler![ping, osc_start, osc_stop, config_load, config_save])
+    .invoke_handler(tauri::generate_handler![ping, osc_start, osc_stop, osc_update, config_load, config_save])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }
