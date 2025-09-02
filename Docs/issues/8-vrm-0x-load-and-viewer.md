@@ -23,3 +23,18 @@ VRM 0.xモデルの読み込みとThree.js + three-vrmでの表示を実装し�
 (必要なら) 要確認事項:
 - three/three-vrmのバージョン固定
 
+---
+
+## 進捗 / 現状（v0 プレースホルダ）
+
+- 実装: `app/src/features/vrm/VrmPlaceholder.tsx`
+  - ファイル選択/リセットのUIを追加（`input[type=file]`）
+  - 選択したファイル名/サイズを表示し、`localStorage(vrm.fileName/vrm.fileSize)` に保存
+  - 読み込み処理は未実装である旨を明示
+- 組み込み: `app/src/App.tsx` のVRMビューア枠に配置
+
+既知の制約/TODO
+- [ ] three/three-vrm の導入と実ファイル読み込み
+- [ ] VRM 0.x のみ対応を明示（1.0は対象外）
+- [ ] リセットでThreeリソース破棄（将来実装）
+- [ ] 低負荷モード/品質調整の検討
