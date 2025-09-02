@@ -44,6 +44,9 @@ export function CameraPreview() {
       return 30;
     }
   });
+  const [measW, setMeasW] = useState<number | null>(null);
+  const [measH, setMeasH] = useState<number | null>(null);
+  const [measFps, setMeasFps] = useState<number | null>(null);
 
   const parseResolution = useCallback(
     (res: string): { width: number; height: number } => {
@@ -94,6 +97,18 @@ export function CameraPreview() {
         const s = await navigator.mediaDevices.getUserMedia(constraints);
         setStream(s);
         setActive(true);
+        // 実測値の更新
+        const t = s.getVideoTracks()[0];
+        if (t) {
+          const st = t.getSettings();
+          setMeasW(typeof st.width === "number" ? st.width : null);
+          setMeasH(typeof st.height === "number" ? st.height : null);
+          setMeasFps(typeof st.frameRate === "number" ? st.frameRate : null);
+        } else {
+          setMeasW(null);
+          setMeasH(null);
+          setMeasFps(null);
+        }
         const el = videoRef.current;
         if (el) {
           el.srcObject = s;
@@ -315,6 +330,10 @@ export function CameraPreview() {
             カメラ開始（{resolution}/{fps}fps）
           </button>
         )}
+      </div>
+      <div className="camera-measured" aria-live="polite">
+        実測: {measW && measH ? `${measW}x${measH}` : "-"} /
+        {measFps != null ? ` ${Math.round(measFps * 100) / 100}fps` : " -fps"}
       </div>
       {visible && error && (
         <div className="camera-error" role="alert">
