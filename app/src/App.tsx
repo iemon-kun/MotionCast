@@ -4,6 +4,7 @@ import { CameraPreview } from "./features/camera/CameraPreview";
 import { VrmPlaceholder } from "./features/vrm/VrmPlaceholder";
 import { VrmViewer } from "./features/vrm/VrmViewer";
 import { IpcPing } from "./features/ipc/IpcPing";
+import { OscTest } from "./features/osc/OscTest";
 
 function App() {
   const [showSidebar, setShowSidebar] = useState(true);
@@ -55,6 +56,10 @@ function App() {
             <div className="box">
               <h2 className="section-title">デバッグ: IPC Ping</h2>
               <IpcPing />
+            </div>
+            <div className="box">
+              <h2 className="section-title">送信テスト（OSC）</h2>
+              <OscTest />
             </div>
           </div>
 
