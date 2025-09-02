@@ -154,54 +154,55 @@ export function CameraPreview() {
   }, [refreshDevices]);
 
   // エラーに応じた対処ガイド
-  const buildErrorHelp = useCallback(
-    (err: unknown): string[] => {
-      const tips: string[] = [];
-      let name = "";
-      if (err instanceof DOMException) {
-        name = err.name;
-      } else if (typeof err === "object" && err !== null && "name" in err) {
-        const n = (err as { name?: unknown }).name;
-        name = typeof n === "string" ? n : "";
-      }
-      switch (name) {
-        case "NotAllowedError":
-        case "SecurityError":
-          tips.push(
-            "カメラの使用を許可してください（初回ダイアログ／OSのプライバシー設定）",
-            "macOS: システム設定 → プライバシーとセキュリティ → カメラ → MotionCast を許可",
-          );
-          break;
-        case "NotFoundError":
-          tips.push(
-            "カメラが見つかりません。接続状態を確認し、デバイス更新を押してください",
-            "仮想カメラや外付けカメラの場合はドライバ/アプリの起動を確認",
-          );
-          break;
-        case "NotReadableError":
-        case "AbortError":
-          tips.push(
-            "別アプリがカメラを使用中の可能性があります。使用中アプリを閉じて再試行",
-            "USB の抜き挿し／PC再起動で改善する場合があります",
-          );
-          break;
-        case "OverconstrainedError":
-          tips.push(
-            "選択中の解像度/FPSをサポートしていない可能性があります。値を下げて再試行",
-            "推奨: 1280x720 / 30fps",
-          );
-          break;
-        case "TypeError":
-          tips.push("制約が不正です。既定値に戻して再試行してください（1280x720/30fps）");
-          break;
-        default:
-          tips.push("一時的なエラーの可能性があります。再試行してください");
-      }
-      tips.push("問題が続く場合は、デバイス更新またはアプリの再起動をお試しください");
-      return tips;
-    },
-    [],
-  );
+  const buildErrorHelp = useCallback((err: unknown): string[] => {
+    const tips: string[] = [];
+    let name = "";
+    if (err instanceof DOMException) {
+      name = err.name;
+    } else if (typeof err === "object" && err !== null && "name" in err) {
+      const n = (err as { name?: unknown }).name;
+      name = typeof n === "string" ? n : "";
+    }
+    switch (name) {
+      case "NotAllowedError":
+      case "SecurityError":
+        tips.push(
+          "カメラの使用を許可してください（初回ダイアログ／OSのプライバシー設定）",
+          "macOS: システム設定 → プライバシーとセキュリティ → カメラ → MotionCast を許可",
+        );
+        break;
+      case "NotFoundError":
+        tips.push(
+          "カメラが見つかりません。接続状態を確認し、デバイス更新を押してください",
+          "仮想カメラや外付けカメラの場合はドライバ/アプリの起動を確認",
+        );
+        break;
+      case "NotReadableError":
+      case "AbortError":
+        tips.push(
+          "別アプリがカメラを使用中の可能性があります。使用中アプリを閉じて再試行",
+          "USB の抜き挿し／PC再起動で改善する場合があります",
+        );
+        break;
+      case "OverconstrainedError":
+        tips.push(
+          "選択中の解像度/FPSをサポートしていない可能性があります。値を下げて再試行",
+          "推奨: 1280x720 / 30fps",
+        );
+        break;
+      case "TypeError":
+        tips.push(
+          "制約が不正です。既定値に戻して再試行してください（1280x720/30fps）",
+        );
+        break;
+      default:
+        tips.push("一時的なエラーの可能性があります。再試行してください");
+    }
+    tips.push(
+      "問題が続く場合は、デバイス更新またはアプリの再起動をお試しください",
+    );
+    return tips;
+  }, []);
 
   const resetToDefaults = useCallback(async () => {
     setResolution("1280x720");
@@ -324,8 +325,12 @@ export function CameraPreview() {
             ))}
           </ul>
           <div className="camera-actions">
-            <button className="btn" onClick={() => start()}>再試行</button>
-            <button className="btn" onClick={() => resetToDefaults()}>推奨設定に戻す</button>
+            <button className="btn" onClick={() => start()}>
+              再試行
+            </button>
+            <button className="btn" onClick={() => resetToDefaults()}>
+              推奨設定に戻す
+            </button>
           </div>
         </div>
       )}
