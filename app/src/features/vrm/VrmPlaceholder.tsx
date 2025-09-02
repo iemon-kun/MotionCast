@@ -30,6 +30,17 @@ export function VrmPlaceholder() {
     } catch {
       // ignore
     }
+    try {
+      const url = URL.createObjectURL(f);
+      // Viewer 側が読み込み後に revoke する前提
+      window.dispatchEvent(
+        new CustomEvent("motioncast:vrm-select", {
+          detail: { url, name: f.name, size: f.size },
+        }),
+      );
+    } catch {
+      // ignore
+    }
   };
   const onReset = () => {
     setFileName("未読み込み");
@@ -41,6 +52,11 @@ export function VrmPlaceholder() {
       // ignore
     }
     if (inputRef.current) inputRef.current.value = "";
+    try {
+      window.dispatchEvent(new CustomEvent("motioncast:vrm-reset"));
+    } catch {
+      // ignore
+    }
   };
 
   return (
