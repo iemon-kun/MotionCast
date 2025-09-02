@@ -37,11 +37,14 @@ export function CameraPreview() {
     }
   });
 
-  const parseResolution = useCallback((res: string): { width: number; height: number } => {
-    const m = res.match(/^(\d+)x(\d+)$/);
-    if (!m) return { width: 1280, height: 720 };
-    return { width: Number(m[1]), height: Number(m[2]) };
-  }, []);
+  const parseResolution = useCallback(
+    (res: string): { width: number; height: number } => {
+      const m = res.match(/^(\d+)x(\d+)$/);
+      if (!m) return { width: 1280, height: 720 };
+      return { width: Number(m[1]), height: Number(m[2]) };
+    },
+    [],
+  );
 
   const stop = useCallback(() => {
     if (stream) {
@@ -60,7 +63,9 @@ export function CameraPreview() {
           for (const track of stream.getTracks()) track.stop();
         }
         const { width, height } = parseResolution(
-          opts?.width && opts?.height ? `${opts.width}x${opts.height}` : resolution,
+          opts?.width && opts?.height
+            ? `${opts.width}x${opts.height}`
+            : resolution,
         );
         const reqFps = opts?.fps ?? fps;
         const videoConstraints: MediaTrackConstraints = {
