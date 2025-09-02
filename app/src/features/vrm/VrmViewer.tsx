@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { VRM, VRMLoaderPlugin, VRMUtils } from "@pixiv/three-vrm";
+import { VRMHumanBoneName } from "@pixiv/three-vrm-core";
 
 export function VrmViewer() {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -96,10 +97,20 @@ export function VrmViewer() {
         update?: (dt: number) => void;
       } | null;
       v?.update?.(dt);
-      // Apply simple head rotation by rotating the whole VRM scene for now
+      // Apply head/neck rotation on humanoid bones if available
       const p = poseRef.current;
-      if (p && vrmRef.current) {
-        vrmRef.current.scene.rotation.set(p.pitch, p.yaw, p.roll);
+      const vrm = vrmRef.current;
+      if (p && vrm) {
+        const humanoid = vrm.humanoid;
+        const head = humanoid?.getNormalizedBoneNode(VRMHumanBoneName.Head);
+        const neck = humanoid?.getNormalizedBoneNode(VRMHumanBoneName.Neck);
+        if (head) {
+          head.rotation.set(p.pitch, p.yaw, p.roll);
+        }
+        if (neck) {
+          // Neck follows with smaller weight for natural motion
+          neck.rotation.set(p.pitch * 0.4, p.yaw * 0.4, p.roll * 0.4);
+        }
       }
       renderer.render(scene, camera);
     };
