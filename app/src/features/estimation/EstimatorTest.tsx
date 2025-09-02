@@ -1,10 +1,13 @@
 import { useState } from "react";
 import { useEstimator } from "./useEstimator";
+import { useFaceLandmarker } from "./useFaceLandmarker";
 
 export function EstimatorTest() {
   const [enabled, setEnabled] = useState(true);
   const [fps, setFps] = useState(30);
-  const { frame } = useEstimator(enabled, fps);
+  const [useMP, setUseMP] = useState(false);
+  const { frame } = useEstimator(enabled && !useMP, fps);
+  const { loaded, error } = useFaceLandmarker(enabled && useMP);
 
   return (
     <div>
@@ -32,6 +35,25 @@ export function EstimatorTest() {
           {frame ? frame.blink.toFixed(2) : "-"} / mouth:{" "}
           {frame ? frame.mouth.toFixed(2) : "-"}
         </div>
+      </div>
+      <div className="ipc-row small">
+        <label>
+          <input
+            type="checkbox"
+            checked={useMP}
+            onChange={(e) => setUseMP(e.target.checked)}
+          />
+          <span style={{ marginLeft: 6 }}>MediaPipeを使用（要カメラ）</span>
+        </label>
+        {useMP && (
+          <span style={{ marginLeft: 8 }}>
+            {error
+              ? `読み込み失敗: ${error}`
+              : loaded
+                ? "準備完了"
+                : "読み込み中..."}
+          </span>
+        )}
       </div>
     </div>
   );

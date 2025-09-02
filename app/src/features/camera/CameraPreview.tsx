@@ -63,6 +63,11 @@ export function CameraPreview() {
       setStream(null);
     }
     setActive(false);
+    try {
+      window.dispatchEvent(new CustomEvent("motioncast:camera-stopped"));
+    } catch {
+      void 0;
+    }
   }, [stream]);
 
   const start = useCallback(
@@ -114,6 +119,15 @@ export function CameraPreview() {
           el.srcObject = s;
           try {
             await el.play();
+          } catch {
+            void 0;
+          }
+          try {
+            window.dispatchEvent(
+              new CustomEvent("motioncast:camera-stream", {
+                detail: { video: el },
+              }),
+            );
           } catch {
             void 0;
           }
