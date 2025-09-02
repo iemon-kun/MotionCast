@@ -38,6 +38,9 @@ export function useFaceLandmarker(enabled: boolean) {
           },
           runningMode: "VIDEO",
           outputFaceBlendshapes: true,
+          // Head pose matrix
+          // (APIによって 'facialTransformationMatrices' と表記される場合がある)
+          outputFacialTransformationMatrices: true as unknown as boolean,
           numFaces: 1,
         })) as unknown;
         if (canceled) return;
@@ -95,16 +98,67 @@ export function useFaceLandmarker(enabled: boolean) {
             }[];
           };
         };
-        const res = lm.detectForVideo(video, ts);
+        const res = lm.detectForVideo(video, ts) as unknown as {
+          faceBlendshapes?: {
+            categories: { categoryName: string; score: number }[];
+          }[];
+          facialTransformationMatrixes?: Array<
+            Float32Array | number[] | { data: number[] }
+          >;
+          facialTransformationMatrices?: Array<
+            Float32Array | number[] | { data: number[] }
+          >;
+        };
         const bs = res?.faceBlendshapes?.[0]?.categories ?? [];
         const cat = (name: string) =>
           bs.find((c) => c.categoryName === name)?.score ?? 0;
         const blink = (cat("eyeBlinkLeft") + cat("eyeBlinkRight")) / 2;
         const mouth = cat("jawOpen");
+        // Try to extract head pose from facial transformation matrix
+        let yaw = 0,
+          pitch = 0,
+          roll = 0;
+        try {
+          const mats = (res.facialTransformationMatrixes ??
+            res.facialTransformationMatrices) as
+            | Array<Float32Array | number[] | { data: number[] }>
+            | undefined;
+          const raw = mats && mats[0];
+          const arr = raw
+            ? Array.isArray(raw)
+              ? (raw as number[])
+              : typeof (raw as { data?: unknown }).data !== "undefined"
+                ? ((raw as { data: unknown }).data as number[])
+                : Array.from(raw as Float32Array)
+            : undefined;
+          if (arr && arr.length >= 16) {
+            // Assume column-major 4x4
+            const r00 = arr[0];
+            // const r01 = arr[4];
+            // const r02 = arr[8];
+            const r10 = arr[1];
+            // const r11 = arr[5];
+            // const r12 = arr[9];
+            const r20 = arr[2];
+            const r21 = arr[6];
+            const r22 = arr[10];
+            // XYZ (pitch-x, yaw-y, roll-z) approximation
+            pitch = Math.asin(-Math.max(-1, Math.min(1, r20)));
+            roll = Math.atan2(r21, r22);
+            yaw = Math.atan2(r10, r00);
+            const clamp = (x: number, a: number) =>
+              Math.max(-a, Math.min(a, x));
+            yaw = clamp(yaw, Math.PI / 2);
+            pitch = clamp(pitch, Math.PI / 2);
+            roll = clamp(roll, Math.PI / 2);
+          }
+        } catch {
+          // ignore matrix failures
+        }
         const detail = {
-          yaw: 0,
-          pitch: 0,
-          roll: 0,
+          yaw,
+          pitch,
+          roll,
           blink,
           mouth,
           ts,
