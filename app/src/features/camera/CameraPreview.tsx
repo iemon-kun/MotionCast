@@ -1,17 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 type StartOptions = {
-  width?: number
-  height?: number
-  fps?: number
-}
+  width?: number;
+  height?: number;
+  fps?: number;
+};
 
 export function CameraPreview() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [active, setActive] = useState(false);
-  const [devices, setDevices] = useState<Array<{ deviceId: string; label: string }>>([]);
+  const [devices, setDevices] = useState<
+    Array<{ deviceId: string; label: string }>
+  >([]);
   const [selectedId, setSelectedId] = useState<string>(() => {
     try {
       return localStorage.getItem("camera.deviceId") || "";
@@ -47,7 +49,10 @@ export function CameraPreview() {
             exact: selectedId,
           } as ConstrainDOMString;
         }
-        const constraints: MediaStreamConstraints = { video: videoConstraints, audio: false };
+        const constraints: MediaStreamConstraints = {
+          video: videoConstraints,
+          audio: false,
+        };
         const s = await navigator.mediaDevices.getUserMedia(constraints);
         setStream(s);
         setActive(true);
@@ -67,7 +72,7 @@ export function CameraPreview() {
       }
     },
     [stream, selectedId],
-  )
+  );
 
   useEffect(() => {
     return () => stop();
@@ -135,7 +140,9 @@ export function CameraPreview() {
             ))}
           </select>
         </label>
-        <button className="btn" onClick={() => refreshDevices()}>デバイス更新</button>
+        <button className="btn" onClick={() => refreshDevices()}>
+          デバイス更新
+        </button>
         {active ? (
           <button className="btn" onClick={() => stop()} aria-pressed={active}>
             カメラ停止
@@ -146,12 +153,16 @@ export function CameraPreview() {
           </button>
         )}
       </div>
-      {error && <p className="camera-error" role="alert">{error}</p>}
+      {error && (
+        <p className="camera-error" role="alert">
+          {error}
+        </p>
+      )}
       <div className="camera-preview">
         <video ref={videoRef} muted playsInline className="camera-video" />
       </div>
     </section>
-  )
+  );
 }
 
-export default CameraPreview
+export default CameraPreview;
