@@ -63,7 +63,20 @@ export function VrmViewer() {
     camera.position.set(0, 1.2, 3);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, pixelRatioCap));
+    const applySize = () => {
+      const rect = el.getBoundingClientRect();
+      const w = Math.max(1, Math.floor(rect.width));
+      const h = Math.max(1, Math.floor(rect.height));
+      // Clamp device pixel ratio so that drawing buffer does not explode
+      const maxBuffer = 4096; // safe upper bound
+      const cap = Math.max(1, pixelRatioCap);
+      let pr = Math.min(window.devicePixelRatio || 1, cap);
+      pr = Math.min(pr, maxBuffer / w, maxBuffer / h);
+      renderer.setPixelRatio(pr);
+      renderer.setSize(w, h, false);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+    };
     el.appendChild(renderer.domElement);
 
     const light = new THREE.DirectionalLight(0xffffff, 1);
@@ -77,18 +90,18 @@ export function VrmViewer() {
     scene.add(cube);
 
     let raf = 0;
-    const resize = () => {
-      const w = el.clientWidth || 640;
-      const h = el.clientHeight || 360;
-      camera.aspect = w / h;
-      camera.updateProjectionMatrix();
-      renderer.setSize(w, h, false);
+    applySize();
+    let pending = 0;
+    const onResize = () => {
+      if (pending) return;
+      pending = requestAnimationFrame(() => {
+        pending = 0;
+        applySize();
+      });
     };
-    resize();
-    const onResize = () => resize();
     window.addEventListener("resize", onResize);
     // Observe container size changes (sidebar toggle etc.)
-    const ro = new ResizeObserver(() => resize());
+    const ro = new ResizeObserver(() => onResize());
     ro.observe(el);
 
     const clock = new THREE.Clock();
@@ -209,6 +222,7 @@ export function VrmViewer() {
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", onResize);
+      if (pending) cancelAnimationFrame(pending);
       ro.disconnect();
       window.removeEventListener(
         "motioncast:vrm-select",

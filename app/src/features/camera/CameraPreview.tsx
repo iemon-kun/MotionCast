@@ -125,8 +125,9 @@ export function CameraPreview() {
           try {
             const container = el.parentElement as HTMLElement | null;
             if (container) {
-              const w = Math.max(1, container.clientWidth);
-              const h = Math.max(1, container.clientHeight);
+              const rect = container.getBoundingClientRect();
+              const w = Math.max(1, Math.floor(rect.width));
+              const h = Math.max(1, Math.floor(rect.height));
               el.width = w;
               el.height = h;
             }
@@ -200,8 +201,9 @@ export function CameraPreview() {
     if (!el || !container) return;
     const ro = new ResizeObserver(() => {
       try {
-        const w = Math.max(1, container.clientWidth);
-        const h = Math.max(1, container.clientHeight);
+        const rect = container.getBoundingClientRect();
+        const w = Math.max(1, Math.floor(rect.width));
+        const h = Math.max(1, Math.floor(rect.height));
         el.width = w;
         el.height = h;
       } catch {
