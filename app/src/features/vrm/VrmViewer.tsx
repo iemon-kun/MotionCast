@@ -7,6 +7,39 @@ export function VrmViewer() {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const vrmRef = useRef<VRM | null>(null);
   const [status, setStatus] = useState<string>("未読み込み");
+  const [running, setRunning] = useState<boolean>(() => {
+    try {
+      const raw = localStorage.getItem("viewer.running");
+      return raw == null ? true : raw !== "false";
+    } catch {
+      return true;
+    }
+  });
+  const [pixelRatioCap, setPixelRatioCap] = useState<number>(() => {
+    try {
+      const v = Number(localStorage.getItem("viewer.pixelRatioCap"));
+      return Number.isFinite(v) && v > 0 ? v : 2;
+    } catch {
+      return 2;
+    }
+  });
+  const [targetFps, setTargetFps] = useState<number>(() => {
+    try {
+      const v = Number(localStorage.getItem("viewer.targetFps"));
+      return Number.isFinite(v) && v > 0 ? v : 60;
+    } catch {
+      return 60;
+    }
+  });
+
+  const runningRef = useRef<boolean>(true);
+  const fpsRef = useRef<number>(60);
+  useEffect(() => {
+    runningRef.current = running;
+  }, [running]);
+  useEffect(() => {
+    fpsRef.current = targetFps;
+  }, [targetFps]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -19,7 +52,7 @@ export function VrmViewer() {
     camera.position.set(0, 1.2, 3);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, pixelRatioCap));
     el.appendChild(renderer.domElement);
 
     const light = new THREE.DirectionalLight(0xffffff, 1);
@@ -45,10 +78,16 @@ export function VrmViewer() {
     window.addEventListener("resize", onResize);
 
     const clock = new THREE.Clock();
+    let acc = 0;
     const animate = () => {
       raf = requestAnimationFrame(animate);
-      cube.rotation.y += 0.01;
       const dt = clock.getDelta();
+      acc += dt;
+      if (!runningRef.current) return;
+      const minInterval = 1 / Math.max(1, fpsRef.current);
+      if (acc < minInterval) return;
+      acc = 0;
+      cube.rotation.y += 0.01;
       // VRM があれば update する
       const v = vrmRef.current as unknown as {
         update?: (dt: number) => void;
@@ -127,6 +166,8 @@ export function VrmViewer() {
     };
   }, []);
 
+  // Note: pixelRatioCap は初期化時のみ適用（将来必要なら renderer を ref に保持して動的反映）
+
   return (
     <div className="viewer-canvas-wrap">
       <div
@@ -134,6 +175,61 @@ export function VrmViewer() {
         className="viewer-canvas"
         aria-label="VRMビューア"
       />
+      <div className="viewer-controls">
+        <button
+          className="btn"
+          aria-pressed={running}
+          onClick={() => {
+            const next = !running;
+            setRunning(next);
+            try {
+              localStorage.setItem("viewer.running", String(next));
+            } catch {
+              void 0;
+            }
+          }}
+        >
+          {running ? "描画停止" : "描画再開"}
+        </button>
+        <label>
+          <span className="sr-only">PixelRatio上限</span>
+          <select
+            value={String(pixelRatioCap)}
+            onChange={(e) => {
+              const v = Number(e.target.value) || 1;
+              setPixelRatioCap(v);
+              try {
+                localStorage.setItem("viewer.pixelRatioCap", String(v));
+              } catch {
+                void 0;
+              }
+            }}
+          >
+            <option value="1">PR 1.0</option>
+            <option value="1.5">PR 1.5</option>
+            <option value="2">PR 2.0</option>
+          </select>
+        </label>
+        <label>
+          <span className="sr-only">Target FPS</span>
+          <select
+            value={String(targetFps)}
+            onChange={(e) => {
+              const v = Number(e.target.value) || 30;
+              setTargetFps(v);
+              try {
+                localStorage.setItem("viewer.targetFps", String(v));
+              } catch {
+                void 0;
+              }
+            }}
+          >
+            <option value="30">30fps</option>
+            <option value="45">45fps</option>
+            <option value="60">60fps</option>
+          </select>
+        </label>
+      </div>
       <div className="viewer-status" aria-live="polite">
         {status}
       </div>
