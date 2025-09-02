@@ -1,0 +1,6 @@
+# Ignore all local VRM/GLB assets in this folder.
+# Keep this file and README.md tracked.
+*
+!.gitignore
+!README.md
+
