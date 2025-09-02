@@ -123,6 +123,17 @@ export function CameraPreview() {
             void 0;
           }
           try {
+            const container = el.parentElement as HTMLElement | null;
+            if (container) {
+              const w = Math.max(1, container.clientWidth);
+              const h = Math.max(1, container.clientHeight);
+              el.width = w;
+              el.height = h;
+            }
+          } catch {
+            void 0;
+          }
+          try {
             window.dispatchEvent(
               new CustomEvent("motioncast:camera-stream", {
                 detail: { video: el },
@@ -181,6 +192,25 @@ export function CameraPreview() {
       navigator.mediaDevices?.removeEventListener?.("devicechange", handler);
     };
   }, [refreshDevices]);
+
+  // Keep <video> intrinsic size in sync with container size
+  useEffect(() => {
+    const el = videoRef.current;
+    const container = el?.parentElement as HTMLElement | null;
+    if (!el || !container) return;
+    const ro = new ResizeObserver(() => {
+      try {
+        const w = Math.max(1, container.clientWidth);
+        const h = Math.max(1, container.clientHeight);
+        el.width = w;
+        el.height = h;
+      } catch {
+        /* ignore */
+      }
+    });
+    ro.observe(container);
+    return () => ro.disconnect();
+  }, [visible]);
 
   // エラーに応じた対処ガイド
   const buildErrorHelp = useCallback((err: unknown): string[] => {

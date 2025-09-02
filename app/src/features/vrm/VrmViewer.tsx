@@ -87,6 +87,9 @@ export function VrmViewer() {
     resize();
     const onResize = () => resize();
     window.addEventListener("resize", onResize);
+    // Observe container size changes (sidebar toggle etc.)
+    const ro = new ResizeObserver(() => resize());
+    ro.observe(el);
 
     const clock = new THREE.Clock();
     let acc = 0;
@@ -206,6 +209,7 @@ export function VrmViewer() {
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", onResize);
+      ro.disconnect();
       window.removeEventListener(
         "motioncast:vrm-select",
         onSelect as EventListener,
