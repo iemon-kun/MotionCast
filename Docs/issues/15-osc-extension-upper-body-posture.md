@@ -23,3 +23,31 @@
 (必要なら) 要確認事項:
 - cluster側で解釈可能な最小/推奨項目
 
+---
+
+## 提案スキーマ: mc-upper（最小＋上半身Quat）
+
+- スキーマ名: `mc-upper`（UIのOSCスキーマで選択）
+- 送信レート: UI設定に追従（15/30/60fps）
+- 値の平滑化: 顔/頭はEMA、上半身Quatは送信側で未平滑（必要なら将来Slerp平滑を追加）
+
+アドレス定義（mc-upperで送信）
+- `/mc/ping` string("ok")
+- `/mc/blink` float (0..1)
+- `/mc/mouth` float (0..1)
+- `/mc/head` float yawDeg, float pitchDeg, float rollDeg
+- 上半身（ローカル回転。VRMボーンの親ローカル基準、クォータニオン順序: x y z w）
+  - `/mc/ub/chest` float qx, float qy, float qz, float qw
+  - `/mc/ub/l_shoulder` qx qy qz qw
+  - `/mc/ub/r_shoulder` qx qy qz qw
+  - `/mc/ub/l_upper_arm` qx qy qz qw
+  - `/mc/ub/r_upper_arm` qx qy qz qw
+  - `/mc/ub/l_lower_arm` qx qy qz qw
+  - `/mc/ub/r_lower_arm` qx qy qz qw
+  - `/mc/ub/l_wrist` qx qy qz qw（任意・未実装時は未送信）
+  - `/mc/ub/r_wrist` qx qy qz qw（任意・未実装時は未送信）
+
+備考
+- ボーン回転はVRM側でのローカル回転（親ローカル）を使用。Tポーズ時にキャリブレーションされる前提。
+- 上半身のON/OFFはスキーマ選択で切替（`minimal`でOFF、`mc-upper`でON）。
+
