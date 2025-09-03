@@ -13,9 +13,7 @@ export function CameraPreview() {
   const [active, setActive] = useState(false);
   // Avoid concurrent start() calls and race conditions
   const startLockRef = useRef(false);
-  const [devices, setDevices] = useState<
-    Array<{ deviceId: string; label: string }>
-  >([]);
+  const [devices, setDevices] = useState<Array<{ deviceId: string; label: string }>>([]);
   const [selectedId, setSelectedId] = useState<string>(() => {
     try {
       return localStorage.getItem("camera.deviceId") || "";
