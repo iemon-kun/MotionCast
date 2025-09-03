@@ -1,3 +1,10 @@
+import { CameraPreview } from "./features/camera/CameraPreview";
+import { VrmPlaceholder } from "./features/vrm/VrmPlaceholder";
+import { VrmViewer } from "./features/vrm/VrmViewer";
+import { IpcPing } from "./features/ipc/IpcPing";
+import { OscTest } from "./features/osc/OscTest";
+import { EstimatorTest } from "./features/estimation/EstimatorTest";
+import { OscBridge } from "./features/osc/OscBridge";
 import React, { useEffect, useState } from "react";
 
 // ===============================
@@ -84,6 +91,25 @@ export default function App() {
   const [openMetrics, setOpenMetrics] = useStickyState("ui.openMetrics", true);
   const [showSidebar, setShowSidebar] = useStickyState("ui.showSidebar", true); // デフォルト表示、収納でビューア拡大
 
+  useEffect(() => {
+    const onVrmSelect = (
+      ev: Event & { detail: { name: string; url: string } },
+    ) => {
+      if (ev.detail?.name) {
+        setVrmName(ev.detail.name);
+      }
+    };
+    window.addEventListener(
+      "motioncast:vrm-select",
+      onVrmSelect as EventListener,
+    );
+    return () =>
+      window.removeEventListener(
+        "motioncast:vrm-select",
+        onVrmSelect as EventListener,
+      );
+  }, [setVrmName]);
+
   // --- 簡易スモークテスト（最小テストケース） ---
   useEffect(() => {
     const makeLogText = () => {
@@ -169,6 +195,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-sky-50 via-indigo-50 to-emerald-50 text-gray-800">
+      <OscBridge />
       {/* ヘッダー */}
       <header
         className="sticky top-0 z-20 border-b backdrop-blur bg-white/60"
@@ -264,19 +291,7 @@ export default function App() {
                 </SimpleSection>
 
                 <SimpleSection title="VRMモデル">
-                  <Field label="読み込み">
-                    <div className="flex gap-2">
-                      <button
-                        className="px-3 py-2 rounded-lg border bg-white hover:bg-gray-50"
-                        onClick={() => setVrmName("sample.vrm")}
-                      >
-                        ファイルを選択
-                      </button>
-                      <button className="px-3 py-2 rounded-lg border bg-white hover:bg-gray-50">
-                        リセット
-                      </button>
-                    </div>
-                  </Field>
+                  <VrmPlaceholder />
                   <Field label="スケール">
                     <input
                       type="range"
@@ -411,67 +426,25 @@ export default function App() {
                 showCamera ? "grid-cols-1 xl:grid-cols-2" : "grid-cols-1"
               } gap-4`}
             >
-              {/* カメラプレビュー（ダミー） */}
-              {
-                <div
-                  className={`relative rounded-2xl border overflow-hidden bg-white/60 backdrop-blur shadow-sm transition-all duration-300 ${
-                    showCamera
-                      ? "opacity-100 scale-[1.00]"
-                      : "opacity-0 scale-[0.98] pointer-events-none h-0"
-                  }`}
-                  style={{ height: showCamera ? undefined : 0 }}
-                >
-                  {showCamera && (
-                    <>
-                      <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_30%,rgba(99,102,241,0.12),transparent_40%),radial-gradient(circle_at_80%_70%,rgba(16,185,129,0.12),transparent_40%)]" />
-                      <div className="aspect-video flex items-center justify-center">
-                        <div className="text-center select-none">
-                          <div className="text-[11px] tracking-widest text-gray-500 mb-1">
-                            CAMERA PREVIEW
-                          </div>
-                          <div className="text-lg font-semibold">
-                            カメラプレビュー
-                          </div>
-                          <div className="mt-2 text-xs text-gray-500">
-                            （デモ映像）
-                          </div>
-                        </div>
-                      </div>
-                      <div className="absolute bottom-2 left-2 flex gap-2">
-                        <StatChip label="解像度" value={res} />
-                        <StatChip label="FPS" value={`${fps}`} />
-                      </div>
-                      <div className="absolute top-2 right-2 flex gap-2">
-                        <button className="px-2.5 py-1.5 rounded-lg border bg-white/80 hover:bg-white text-xs shadow-sm">
-                          ガイド表示
-                        </button>
-                        <button className="px-2.5 py-1.5 rounded-lg border bg-white/80 hover:bg-white text-xs shadow-sm">
-                          スクショ
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              }
+              {/* カメラプレビュー */}
+              <div
+                className={`relative rounded-2xl border overflow-hidden bg-white/60 backdrop-blur shadow-sm transition-all duration-300 ${
+                  showCamera
+                    ? "opacity-100 scale-[1.00]"
+                    : "opacity-0 scale-[0.98] pointer-events-none h-0"
+                }`}
+                style={{ height: showCamera ? undefined : 0 }}
+              >
+                {showCamera && <CameraPreview />}
+              </div>
 
-              {/* VRMビュー（ダミー） */}
+              {/* VRMビュー */}
               <div
                 className={`relative rounded-2xl border overflow-hidden bg-white/60 backdrop-blur shadow-sm transition-all duration-300 ${
                   showCamera ? "" : "xl:col-span-2"
                 }`}
               >
-                <div className="absolute inset-0 bg-[conic-gradient(from_45deg,rgba(0,0,0,0.03),transparent_30%)]" />
-                <div className="aspect-video grid place-items-center">
-                  <div className="text-center select-none">
-                    <div className="text-[11px] tracking-widest text-gray-500 mb-1">
-                      VRM VIEWER
-                    </div>
-                    <div className="text-lg font-semibold">VRMビューア</div>
-                    <div className="mt-2 text-xs text-gray-500">
-                      （Three.js/three-vrm予定・今はプレースホルダ）
-                    </div>
-                  </div>
-                </div>
+                <VrmViewer />
                 <div className="absolute bottom-2 left-2 flex gap-2">
                   <StatChip
                     label="BlendShape/表情"
@@ -552,6 +525,30 @@ export default function App() {
                     <pre className="mt-3 rounded-lg border bg-gray-50 p-2 h-28 overflow-auto font-mono text-[11px] leading-relaxed whitespace-pre-wrap">
                       {logText}
                     </pre>
+                    <div className="mt-3">
+                      <SimpleSection title="デバッグコンポーネント">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                          <div className="rounded-lg border bg-gray-50 p-2">
+                            <h4 className="text-xs font-semibold mb-1">
+                              IPC Ping
+                            </h4>
+                            <IpcPing />
+                          </div>
+                          <div className="rounded-lg border bg-gray-50 p-2">
+                            <h4 className="text-xs font-semibold mb-1">
+                              OSC Test
+                            </h4>
+                            <OscTest />
+                          </div>
+                          <div className="rounded-lg border bg-gray-50 p-2">
+                            <h4 className="text-xs font-semibold mb-1">
+                              Estimator Test
+                            </h4>
+                            <EstimatorTest />
+                          </div>
+                        </div>
+                      </SimpleSection>
+                    </div>
                   </div>
                 )}
               </div>
