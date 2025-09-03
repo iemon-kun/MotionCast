@@ -16,9 +16,11 @@ function App() {
   const [estFps, setEstFps] = useState<number>(0);
   const [sendHz, setSendHz] = useState<number>(0);
   const [meanLatency, setMeanLatency] = useState<number>(0);
-  const [stab, setStab] = useState<{ hold: number; fade: number; reacq: number }>(
-    { hold: 0, fade: 0, reacq: 0 },
-  );
+  const [stab, setStab] = useState<{
+    hold: number;
+    fade: number;
+    reacq: number;
+  }>({ hold: 0, fade: 0, reacq: 0 });
   const fpsAggRef = useRef<{ last: number; count: number }>({
     last: 0,
     count: 0,
@@ -68,14 +70,21 @@ function App() {
       if (Number.isFinite(ms)) setMeanLatency(ms);
     };
     const onStab = (ev: Event) => {
-      const ce = ev as CustomEvent<{ hold?: number; fade?: number; reacq?: number }>;
+      const ce = ev as CustomEvent<{
+        hold?: number;
+        fade?: number;
+        reacq?: number;
+      }>;
       setStab({
         hold: Math.max(0, Math.floor(ce.detail?.hold ?? 0)),
         fade: Math.max(0, Math.floor(ce.detail?.fade ?? 0)),
         reacq: Math.max(0, Math.floor(ce.detail?.reacq ?? 0)),
       });
     };
-    window.addEventListener("motioncast:bridge-metrics", onBridge as EventListener);
+    window.addEventListener(
+      "motioncast:bridge-metrics",
+      onBridge as EventListener,
+    );
     window.addEventListener(
       "motioncast:stabilizer-metrics",
       onStab as EventListener,

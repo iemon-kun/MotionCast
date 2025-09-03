@@ -118,7 +118,10 @@ export function OscBridge() {
   const metricsEnabledRef = useRef<boolean>(false);
   const tickCountRef = useRef<number>(0);
   const lastMetricsRef = useRef<number>(0);
-  const latAccRef = useRef<{ sum: number; count: number }>({ sum: 0, count: 0 });
+  const latAccRef = useRef<{ sum: number; count: number }>({
+    sum: 0,
+    count: 0,
+  });
   const statCounterRef = useRef<{ hold: number; fade: number; reacq: number }>({
     hold: 0,
     fade: 0,
