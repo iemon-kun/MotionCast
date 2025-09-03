@@ -126,10 +126,11 @@ export function CameraPreview() {
           const over = name === "OverconstrainedError" || name === "NotFoundError";
           if (over && selectedId) {
             try {
-              // remove deviceId in a type-safe way
-              const { deviceId: _omit, ...rest } =
-                videoConstraints as MediaTrackConstraints;
-              const vc2: MediaTrackConstraints = { ...rest };
+              // remove deviceId in a type-safe way without creating unused vars
+              const vc2: MediaTrackConstraints = {
+                ...(videoConstraints as MediaTrackConstraints),
+              };
+              delete (vc2 as { deviceId?: ConstrainDOMString }).deviceId;
               s = await navigator.mediaDevices.getUserMedia({
                 video: vc2,
                 audio: false,
