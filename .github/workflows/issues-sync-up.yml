@@ -16,11 +16,13 @@ jobs:
           !contains(github.event.head_commit.message, '[skip md-sync]') }}
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       issues: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # ensure before/sha are available for diff
 
       - name: Detect changed MD files
         id: diff
@@ -32,7 +34,11 @@ jobs:
           if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ]; then
             BASE="$(git rev-list --max-parents=0 "$HEAD" | tail -n1)"
           fi
+          # Ensure base/head exist in the local clone (for shallow clones on forks, etc.)
+          git fetch --no-tags --prune --quiet origin "$BASE:$BASE" || true
+          git fetch --no-tags --prune --quiet origin "$HEAD:$HEAD" || true
           CHANGED=$(git diff --name-only "$BASE" "$HEAD" | grep '^Docs/issues/.*\.md$' || true)
+          echo "Base: $BASE"; echo "Head: $HEAD"; echo "Changed:"; echo "$CHANGED"
           echo "changed<<EOF" >> "$GITHUB_OUTPUT"
           echo "$CHANGED" >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
@@ -42,6 +48,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+
+      - name: Ensure GitHub CLI
+        if: steps.diff.outputs.changed != ''
+        run: |
+          if ! command -v gh >/dev/null 2>&1; then
+            sudo apt-get update && sudo apt-get install -y gh
+          fi
 
       - name: Install parser deps (gray-matter)
         if: steps.diff.outputs.changed != ''
@@ -60,3 +73,14 @@ jobs:
         run: |
           node .github/scripts/md-to-issues.mjs
 
+      - name: Commit write-backs (issue numbers)
+        if: steps.diff.outputs.changed != ''
+        run: |
+          set -euo pipefail
+          if ! git diff --quiet -- Docs/issues; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add Docs/issues
+            git commit -m "chore(issues): write back created issue numbers [skip md-sync]" || true
+            git push
+          fi
