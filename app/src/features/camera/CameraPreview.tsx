@@ -13,7 +13,9 @@ export function CameraPreview() {
   const [active, setActive] = useState(false);
   // Avoid concurrent start() calls and race conditions
   const startLockRef = useRef(false);
-  const [devices, setDevices] = useState<Array<{ deviceId: string; label: string }>>([]);
+  const [devices, setDevices] = useState<
+    Array<{ deviceId: string; label: string }>
+  >([]);
   const [selectedId, setSelectedId] = useState<string>(() => {
     try {
       return localStorage.getItem("camera.deviceId") || "";
@@ -121,7 +123,8 @@ export function CameraPreview() {
           s = await navigator.mediaDevices.getUserMedia(constraints);
         } catch (err) {
           const name = (err as { name?: string } | undefined)?.name || "";
-          const over = name === "OverconstrainedError" || name === "NotFoundError";
+          const over =
+            name === "OverconstrainedError" || name === "NotFoundError";
           if (over && selectedId) {
             try {
               // remove deviceId in a type-safe way without creating unused vars
@@ -438,8 +441,8 @@ export function CameraPreview() {
       </div>
       <div className="camera-measured" aria-live="polite">
         実測: {measW && measH ? `${measW}x${measH}` : "-"} /
-        {measFps != null ? ` ${Math.round(measFps * 100) / 100}fps` : " -fps"}
-        {" "}| 状態: {active ? "稼働中" : "停止中"}
+        {measFps != null ? ` ${Math.round(measFps * 100) / 100}fps` : " -fps"} |
+        状態: {active ? "稼働中" : "停止中"}
       </div>
       {visible && error && (
         <div className="camera-error" role="alert">
