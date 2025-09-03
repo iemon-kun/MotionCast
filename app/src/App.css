@@ -98,6 +98,11 @@
   width: 100%;
   height: 100%;
 }
+.viewer-canvas canvas {
+  width: 100%;
+  height: 100%;
+  display: block; /* avoid baseline gap causing overflow */
+}
 
 .viewer-canvas-wrap {
   position: relative;
@@ -195,6 +200,7 @@
   display: flex;
   gap: 8px;
   margin-bottom: 8px;
+  flex-wrap: wrap; /* avoid overflow on narrow widths */
 }
 
 .camera-toolbar select,
@@ -203,6 +209,9 @@
   border: 1px solid #d1d5db;
   border-radius: 8px;
   background: #fff;
+}
+.camera-toolbar .btn {
+  white-space: nowrap;
 }
 
 .camera-measured {

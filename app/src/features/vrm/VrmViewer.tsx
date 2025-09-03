@@ -63,6 +63,9 @@ export function VrmViewer() {
     camera.position.set(0, 1.2, 3);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    // Ensure the canvas fits the container (CSS box) regardless of drawing buffer size
+    renderer.domElement.style.width = "100%";
+    renderer.domElement.style.height = "100%";
     const applySize = () => {
       const rect = el.getBoundingClientRect();
       const w = Math.max(1, Math.floor(rect.width));
