@@ -74,7 +74,7 @@ function createIssue({ title, labels, assignees, body }) {
   labels.forEach((l) => args.push('--label', l));
   assignees.forEach((a) => args.push('--assignee', a));
   const out = runGh(args);
-  return out; // returns created issue URL; number can be derived if needed
+  return out; // typically returns created issue URL
 }
 
 function getIssueMeta(n) {
@@ -105,6 +105,17 @@ function editIssue(n, { title, body, labels, assignees }) {
   }
 }
 
+function writeBackIssueNumber(file, number) {
+  const content = fs.readFileSync(file, 'utf8');
+  const fm = matter(content);
+  const data = { ...(fm.data || {}) };
+  if (data.issue && String(data.issue).trim() !== '') return false; // already has number
+  data.issue = Number(number);
+  const next = matter.stringify(fm.content, data);
+  fs.writeFileSync(file, next, 'utf8');
+  return true;
+}
+
 function main() {
   const raw = (process.env.CHANGED_FILES || '').trim();
   if (!raw) {
@@ -119,6 +130,26 @@ function main() {
         console.log(`Creating issue from ${file}`);
         const url = createIssue({ title, labels, assignees, body });
         console.log(`Created: ${url}`);
+        // Try to extract number from URL (…/issues/<num>)
+        const m = String(url).match(/issues\/(\d+)/);
+        if (m && m[1]) {
+          const n = Number(m[1]);
+          if (Number.isFinite(n)) {
+            const changed = writeBackIssueNumber(file, n);
+            if (changed) console.log(`Wrote back issue: ${n} into ${file}`);
+          }
+        } else {
+          // Fallback: query latest created by title (best-effort)
+          try {
+            const out = runGh(['issue', 'list', '--repo', REPO, '--search', `"${title}" in:title`, '--state', 'open', '--json', 'number,title', '--limit', '1']);
+            const arr = JSON.parse(out);
+            if (Array.isArray(arr) && arr[0]?.number) {
+              const n = Number(arr[0].number);
+              const changed = writeBackIssueNumber(file, n);
+              if (changed) console.log(`Wrote back issue (fallback): ${n} into ${file}`);
+            }
+          } catch {}
+        }
       } else {
         console.log(`Editing issue #${issueNum} from ${file}`);
         editIssue(issueNum, { title, body, labels, assignees });
@@ -132,4 +163,3 @@ function main() {
 }
 
 main();
-
