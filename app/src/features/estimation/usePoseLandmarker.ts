@@ -18,6 +18,19 @@ export type UpperBodyDetail = {
   ts: number;
 };
 
+export type PosePoint3D = { x: number; y: number; z: number; v?: number };
+export type UpperBody3DDetail = {
+  lShoulder?: PosePoint3D;
+  lElbow?: PosePoint3D;
+  lWrist?: PosePoint3D;
+  rShoulder?: PosePoint3D;
+  rElbow?: PosePoint3D;
+  rWrist?: PosePoint3D;
+  lHip?: PosePoint3D;
+  rHip?: PosePoint3D;
+  ts: number;
+};
+
 /**
  * MediaPipe Pose Landmarker (upper-body focus).
  * Emits `motioncast:upper-body-update` with selected joints at ~fps.
@@ -98,6 +111,9 @@ export function usePoseLandmarker(enabled: boolean, fps = 15) {
     // EMA smoothing state for points we care about
     const smooth: Record<string, PosePoint> = {};
     const alpha = 0.2;
+    // 3D smoothing
+    const smooth3d: Record<string, PosePoint3D> = {};
+    const alpha3d = 0.25;
 
     const idx = {
       // MediaPipe Pose Landmarks indices
@@ -124,6 +140,19 @@ export function usePoseLandmarker(enabled: boolean, fps = 15) {
       return s;
     };
 
+    const ema3d = (key: string, p: PosePoint3D) => {
+      const s = smooth3d[key];
+      if (!s) {
+        smooth3d[key] = { ...p };
+        return smooth3d[key];
+      }
+      s.x += alpha3d * (p.x - s.x);
+      s.y += alpha3d * (p.y - s.y);
+      s.z += alpha3d * (p.z - s.z);
+      if (typeof p.v === "number") s.v = (s.v ?? 0) + alpha3d * (p.v - (s.v ?? 0));
+      return s;
+    };
+
     const tick = () => {
       rafRef.current = requestAnimationFrame(tick);
       const video = videoRef.current;
@@ -145,6 +174,9 @@ export function usePoseLandmarker(enabled: boolean, fps = 15) {
         const res = lk.detectForVideo(video, now) as unknown as {
           landmarks?: Array<
             Array<{ x: number; y: number; z?: number; visibility?: number }>
+          >;
+          worldLandmarks?: Array<
+            Array<{ x: number; y: number; z: number; visibility?: number }>
           >;
         };
         const first = res?.landmarks?.[0];
@@ -179,6 +211,43 @@ export function usePoseLandmarker(enabled: boolean, fps = 15) {
             detail,
           }),
         );
+
+        // 3D world landmarks (meters, camera-centric Right-handed)
+        const world = res.worldLandmarks?.[0];
+        if (world) {
+          const pick3 = (i: number): PosePoint3D | undefined => {
+            const p = world[i] as { x: number; y: number; z: number; visibility?: number } | undefined;
+            if (!p) return undefined;
+            return { x: p.x, y: p.y, z: p.z, v: p.visibility };
+          };
+          const raw3d: UpperBody3DDetail = {
+            lShoulder: pick3(idx.lShoulder),
+            rShoulder: pick3(idx.rShoulder),
+            lElbow: pick3(idx.lElbow),
+            rElbow: pick3(idx.rElbow),
+            lWrist: pick3(idx.lWrist),
+            rWrist: pick3(idx.rWrist),
+            lHip: pick3(23),
+            rHip: pick3(24),
+            ts: now,
+          };
+          const d3: UpperBody3DDetail = {
+            lShoulder: raw3d.lShoulder && ema3d("lShoulder3d", raw3d.lShoulder),
+            rShoulder: raw3d.rShoulder && ema3d("rShoulder3d", raw3d.rShoulder),
+            lElbow: raw3d.lElbow && ema3d("lElbow3d", raw3d.lElbow),
+            rElbow: raw3d.rElbow && ema3d("rElbow3d", raw3d.rElbow),
+            lWrist: raw3d.lWrist && ema3d("lWrist3d", raw3d.lWrist),
+            rWrist: raw3d.rWrist && ema3d("rWrist3d", raw3d.rWrist),
+            lHip: raw3d.lHip && ema3d("lHip3d", raw3d.lHip),
+            rHip: raw3d.rHip && ema3d("rHip3d", raw3d.rHip),
+            ts: now,
+          } as UpperBody3DDetail;
+          window.dispatchEvent(
+            new CustomEvent<UpperBody3DDetail>("motioncast:upper-body-3d", {
+              detail: d3,
+            }),
+          );
+        }
       } catch {
         // swallow per-frame errors
       }
