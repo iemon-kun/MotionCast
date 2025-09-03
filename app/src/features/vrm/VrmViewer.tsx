@@ -841,6 +841,7 @@ export function VrmViewer() {
       mat.dispose();
       renderer.dispose();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Note: pixelRatioCap は初期化時のみ適用（将来必要なら renderer を ref に保持して動的反映）

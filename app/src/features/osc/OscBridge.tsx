@@ -108,17 +108,6 @@ const FADE_MS = 800;
 const REACQ_MS = 300;
 
 const DEG2RAD = Math.PI / 180;
-const MAX_DEG_PER_S: Record<UBKey, number> = {
-  chest: 120,
-  l_shoulder: 180,
-  r_shoulder: 180,
-  l_upper_arm: 240,
-  r_upper_arm: 240,
-  l_lower_arm: 240,
-  r_lower_arm: 240,
-  l_wrist: 360,
-  r_wrist: 360,
-};
 
 export function OscBridge() {
   const lastSentRef = useRef(0);
