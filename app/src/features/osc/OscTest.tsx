@@ -34,6 +34,13 @@ export function OscTest() {
       return "minimal";
     }
   });
+  const [smooth, setSmooth] = useState<string>(() => {
+    try {
+      return localStorage.getItem("osc.smoothing") || "med";
+    } catch {
+      return "med";
+    }
+  });
 
   useEffect(() => {
     return () => {
@@ -45,6 +52,15 @@ export function OscTest() {
     setError("");
     try {
       await invoke("osc_set_schema", { schema });
+      const alpha =
+        smooth === "off"
+          ? 0
+          : smooth === "low"
+            ? 0.1
+            : smooth === "high"
+              ? 0.4
+              : 0.2;
+      await invoke("osc_set_smoothing_alpha", { alpha });
       await invoke("osc_start", { addr, port, rateHz: rate });
       setSending(true);
       try {
@@ -61,6 +77,7 @@ export function OscTest() {
         localStorage.setItem("osc.port", String(port));
         localStorage.setItem("osc.rate", String(rate));
         localStorage.setItem("osc.schema", schema);
+        localStorage.setItem("osc.smoothing", smooth);
       } catch {
         void 0;
       }
@@ -120,6 +137,16 @@ export function OscTest() {
         >
           <option value="minimal">minimal</option>
           <option value="cluster">cluster-basic</option>
+        </select>
+        <select
+          value={smooth}
+          onChange={(e) => setSmooth(e.target.value)}
+          aria-label="スムージング"
+        >
+          <option value="off">smoothing: off</option>
+          <option value="low">smoothing: low</option>
+          <option value="med">smoothing: med</option>
+          <option value="high">smoothing: high</option>
         </select>
         {sending ? (
           <button className="btn" onClick={stop}>

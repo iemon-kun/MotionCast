@@ -30,6 +30,7 @@ struct AppState {
   sender: Mutex<Option<SenderCtrl>>,
   pose: Arc<Mutex<Pose>>, // latest pose shared between IPC and sender thread
   schema: Arc<Mutex<Schema>>, // current OSC schema
+  smoothing_alpha: Arc<Mutex<f32>>, // EMA alpha [0..1]
 }
 
 impl Default for AppState {
@@ -38,6 +39,7 @@ impl Default for AppState {
       sender: Mutex::new(None),
       pose: Arc::new(Mutex::new(Pose::default())),
       schema: Arc::new(Mutex::new(Schema::Minimal)),
+      smoothing_alpha: Arc::new(Mutex::new(0.2)),
     }
   }
 }
@@ -62,6 +64,7 @@ fn osc_start(state: tauri::State<AppState>, addr: String, port: u16, rate_hz: u3
     let target = format!("{}:{}", addr, port);
     let shared_pose = state.pose.clone();
     let shared_schema = state.schema.clone();
+    let shared_alpha = state.smoothing_alpha.clone();
     let handle = thread::spawn(move || {
       let sock = match UdpSocket::bind("0.0.0.0:0") {
         Ok(s) => s,
@@ -70,6 +73,10 @@ fn osc_start(state: tauri::State<AppState>, addr: String, port: u16, rate_hz: u3
       let rate = if rate_hz == 0 { 30 } else { rate_hz.min(240) };
       let interval = Duration::from_secs_f64(1.0 / (rate as f64));
       let mut next = Instant::now();
+      // Initialize smoothed pose with the first target
+      let mut smoothed = Pose::default();
+      if let Ok(p) = shared_pose.lock() { smoothed = (*p).clone(); }
+
       loop {
         if stop_clone.load(Ordering::SeqCst) { break; }
         // 最新値を読み取り（短時間ロック）
@@ -81,19 +88,28 @@ fn osc_start(state: tauri::State<AppState>, addr: String, port: u16, rate_hz: u3
           }
         };
 
+        // Smoothing (EMA)
+        let alpha = shared_alpha.lock().ok().map(|g| *g).unwrap_or(0.2);
+        let a = if alpha < 0.0 { 0.0 } else if alpha > 1.0 { 1.0 } else { alpha };
+        smoothed.yaw += a * (yaw - smoothed.yaw);
+        smoothed.pitch += a * (pitch - smoothed.pitch);
+        smoothed.roll += a * (roll - smoothed.roll);
+        smoothed.blink += a * (blink - smoothed.blink);
+        smoothed.mouth += a * (mouth - smoothed.mouth);
+
         // Build content according to schema; convert radians to degrees for readability
-        let (yaw_deg, pitch_deg, roll_deg) = (yaw.to_degrees(), pitch.to_degrees(), roll.to_degrees());
+        let (yaw_deg, pitch_deg, roll_deg) = (smoothed.yaw.to_degrees(), smoothed.pitch.to_degrees(), smoothed.roll.to_degrees());
         let schema = shared_schema.lock().ok().map(|g| *g).unwrap_or(Schema::Minimal);
         let content: Vec<OscPacket> = match schema {
           Schema::Minimal => vec![
             OscPacket::Message(OscMessage { addr: "/mc/ping".to_string(), args: vec![OscType::String("ok".into())] }),
-            OscPacket::Message(OscMessage { addr: "/mc/blink".to_string(), args: vec![OscType::Float(blink)] }),
-            OscPacket::Message(OscMessage { addr: "/mc/mouth".to_string(), args: vec![OscType::Float(mouth)] }),
+            OscPacket::Message(OscMessage { addr: "/mc/blink".to_string(), args: vec![OscType::Float(smoothed.blink)] }),
+            OscPacket::Message(OscMessage { addr: "/mc/mouth".to_string(), args: vec![OscType::Float(smoothed.mouth)] }),
             OscPacket::Message(OscMessage { addr: "/mc/head".to_string(), args: vec![OscType::Float(yaw_deg), OscType::Float(pitch_deg), OscType::Float(roll_deg)] }),
           ],
           Schema::ClusterBasic => vec![
-            OscPacket::Message(OscMessage { addr: "/cluster/face/blink".to_string(), args: vec![OscType::Float(blink)] }),
-            OscPacket::Message(OscMessage { addr: "/cluster/face/jawOpen".to_string(), args: vec![OscType::Float(mouth)] }),
+            OscPacket::Message(OscMessage { addr: "/cluster/face/blink".to_string(), args: vec![OscType::Float(smoothed.blink)] }),
+            OscPacket::Message(OscMessage { addr: "/cluster/face/jawOpen".to_string(), args: vec![OscType::Float(smoothed.mouth)] }),
             OscPacket::Message(OscMessage { addr: "/cluster/head/euler".to_string(), args: vec![OscType::Float(yaw_deg), OscType::Float(pitch_deg), OscType::Float(roll_deg)] }),
           ],
         };
@@ -212,7 +228,7 @@ pub fn run() {
       Ok(())
     })
     .manage(AppState::default())
-    .invoke_handler(tauri::generate_handler![ping, osc_start, osc_stop, osc_update, osc_set_schema, config_load, config_save])
+    .invoke_handler(tauri::generate_handler![ping, osc_start, osc_stop, osc_update, osc_set_schema, osc_set_smoothing_alpha, config_load, config_save])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }
