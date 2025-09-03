@@ -126,13 +126,22 @@ export function CameraPreview() {
           const over = name === "OverconstrainedError" || name === "NotFoundError";
           if (over && selectedId) {
             try {
-              const vc2: MediaTrackConstraints = { ...videoConstraints };
-              delete (vc2 as any).deviceId;
-              s = await navigator.mediaDevices.getUserMedia({ video: vc2, audio: false });
+              // remove deviceId in a type-safe way
+              const { deviceId: _omit, ...rest } =
+                videoConstraints as MediaTrackConstraints;
+              const vc2: MediaTrackConstraints = { ...rest };
+              s = await navigator.mediaDevices.getUserMedia({
+                video: vc2,
+                audio: false,
+              });
               // Reset invalid persisted deviceId
               setSelectedId("");
-              try { localStorage.setItem("camera.deviceId", ""); } catch { /* ignore */ }
-            } catch (e2) {
+              try {
+                localStorage.setItem("camera.deviceId", "");
+              } catch {
+                /* ignore */
+              }
+            } catch {
               throw err; // keep original error message
             }
           } else {
@@ -197,9 +206,10 @@ export function CameraPreview() {
 
   // Unmount cleanup: stop any tracks without toggling UI state/events
   useEffect(() => {
+    const el = videoRef.current; // capture ref target at mount
     return () => {
       try {
-        const s = (videoRef.current?.srcObject as MediaStream | null) ?? stream;
+        const s = (el?.srcObject as MediaStream | null) ?? null;
         if (s) {
           for (const track of s.getTracks()) track.stop();
         }
