@@ -125,6 +125,16 @@ export function OscBridge() {
   const latestRef = useRef<Pose | null>(null);
   const upperRef = useRef<UpperBody | null>(null); // latest measured local quats
   const upper3dRef = useRef<UpperBody3D | null>(null); // latest 3D joints with visibility
+  // Lightweight metrics (enabled via UI toggle)
+  const metricsEnabledRef = useRef<boolean>(false);
+  const tickCountRef = useRef<number>(0);
+  const lastMetricsRef = useRef<number>(0);
+  const latAccRef = useRef<{ sum: number; count: number }>({ sum: 0, count: 0 });
+  const statCounterRef = useRef<{ hold: number; fade: number; reacq: number }>({
+    hold: 0,
+    fade: 0,
+    reacq: 0,
+  });
   const cfgRef = useRef({
     enabled: true,
     visLost: VIS_LOST,
@@ -190,6 +200,24 @@ export function OscBridge() {
     window.addEventListener(
       "motioncast:stabilizer-params",
       onCfg as EventListener,
+    );
+    // Metrics on/off (from UI)
+    const onMetrics = (ev: Event) => {
+      const ce = ev as CustomEvent<boolean | { enabled: boolean }>;
+      const d: unknown = ce.detail;
+      metricsEnabledRef.current =
+        typeof d === "object"
+          ? Boolean((d as { enabled?: unknown }).enabled)
+          : Boolean(d);
+      if (metricsEnabledRef.current) {
+        tickCountRef.current = 0;
+        lastMetricsRef.current = performance.now();
+        latAccRef.current = { sum: 0, count: 0 };
+      }
+    };
+    window.addEventListener(
+      "motioncast:metrics-enabled",
+      onMetrics as EventListener,
     );
 
     const tick = () => {
@@ -300,6 +328,7 @@ export function OscBridge() {
             bs.lastMeasured = measured!;
             if (bs.phase === "hold" || bs.phase === "fade") {
               bs.phase = "reacq";
+              statCounterRef.current.reacq++;
               bs.reacqStart = nowMs;
             } else if (bs.phase !== "normal") {
               bs.phase = "normal";
@@ -308,11 +337,13 @@ export function OscBridge() {
             // missing
             if (bs.phase === "normal" || bs.phase === "reacq") {
               bs.phase = "hold";
+              statCounterRef.current.hold++;
             }
             // escalate to fade after hold duration
             if (nowMs - bs.lastSeen > cfg.holdMs) {
               if (bs.phase !== "fade") {
                 bs.phase = "fade";
+                statCounterRef.current.fade++;
                 bs.fadeStart = nowMs;
               }
             }
@@ -351,6 +382,44 @@ export function OscBridge() {
 
         invoke("osc_update_upper", { upper: stabilized }).catch(() => {});
       }
+      // Metrics accumulation & publish (1Hz)
+      if (metricsEnabledRef.current) {
+        tickCountRef.current += 1;
+        if (pose && typeof pose.ts === "number") {
+          const lat = Math.max(0, now - pose.ts);
+          if (Number.isFinite(lat)) {
+            latAccRef.current.sum += lat;
+            latAccRef.current.count += 1;
+          }
+        }
+        const lastTs = lastMetricsRef.current || now;
+        if (now - lastTs >= 1000) {
+          const hz = tickCountRef.current;
+          const { sum, count } = latAccRef.current;
+          const meanLatencyMs = count > 0 ? sum / count : 0;
+          try {
+            window.dispatchEvent(
+              new CustomEvent("motioncast:bridge-metrics", {
+                detail: { hz, meanLatencyMs },
+              }),
+            );
+            window.dispatchEvent(
+              new CustomEvent("motioncast:stabilizer-metrics", {
+                detail: {
+                  hold: statCounterRef.current.hold,
+                  fade: statCounterRef.current.fade,
+                  reacq: statCounterRef.current.reacq,
+                },
+              }),
+            );
+          } catch {
+            /* noop */
+          }
+          tickCountRef.current = 0;
+          latAccRef.current = { sum: 0, count: 0 };
+          lastMetricsRef.current = now;
+        }
+      }
     };
     rafRef.current = requestAnimationFrame(tick);
     return () => {
@@ -369,6 +438,10 @@ export function OscBridge() {
       window.removeEventListener(
         "motioncast:stabilizer-params",
         onCfg as EventListener,
+      );
+      window.removeEventListener(
+        "motioncast:metrics-enabled",
+        onMetrics as EventListener,
       );
       cancelAnimationFrame(rafRef.current);
     };

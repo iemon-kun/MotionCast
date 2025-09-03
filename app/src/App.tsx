@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import "./App.css";
 import { CameraPreview } from "./features/camera/CameraPreview";
 import { VrmPlaceholder } from "./features/vrm/VrmPlaceholder";
@@ -13,6 +13,16 @@ function App() {
   const [showSidebar, setShowSidebar] = useState(true);
   const [openMetrics, setOpenMetrics] = useState(true);
   const [cameraActive, setCameraActive] = useState(false);
+  const [estFps, setEstFps] = useState<number>(0);
+  const [sendHz, setSendHz] = useState<number>(0);
+  const [meanLatency, setMeanLatency] = useState<number>(0);
+  const [stab, setStab] = useState<{ hold: number; fade: number; reacq: number }>(
+    { hold: 0, fade: 0, reacq: 0 },
+  );
+  const fpsAggRef = useRef<{ last: number; count: number }>({
+    last: 0,
+    count: 0,
+  });
   const [oscInfo, setOscInfo] = useState<{
     sending: boolean;
     addr?: string;
@@ -47,6 +57,73 @@ function App() {
       window.removeEventListener("motioncast:camera-stopped", onCamOff);
     };
   }, []);
+
+  // Bridge/stabilizer metrics listeners (always installed; cheap handlers)
+  useEffect(() => {
+    const onBridge = (ev: Event) => {
+      const ce = ev as CustomEvent<{ hz?: number; meanLatencyMs?: number }>;
+      const hz = Math.round(ce.detail?.hz ?? 0);
+      const ms = ce.detail?.meanLatencyMs ?? 0;
+      if (Number.isFinite(hz)) setSendHz(hz);
+      if (Number.isFinite(ms)) setMeanLatency(ms);
+    };
+    const onStab = (ev: Event) => {
+      const ce = ev as CustomEvent<{ hold?: number; fade?: number; reacq?: number }>;
+      setStab({
+        hold: Math.max(0, Math.floor(ce.detail?.hold ?? 0)),
+        fade: Math.max(0, Math.floor(ce.detail?.fade ?? 0)),
+        reacq: Math.max(0, Math.floor(ce.detail?.reacq ?? 0)),
+      });
+    };
+    window.addEventListener("motioncast:bridge-metrics", onBridge as EventListener);
+    window.addEventListener(
+      "motioncast:stabilizer-metrics",
+      onStab as EventListener,
+    );
+    return () => {
+      window.removeEventListener(
+        "motioncast:bridge-metrics",
+        onBridge as EventListener,
+      );
+      window.removeEventListener(
+        "motioncast:stabilizer-metrics",
+        onStab as EventListener,
+      );
+    };
+  }, []);
+
+  // Estimator FPS counting (only when metrics open)
+  useEffect(() => {
+    if (!openMetrics) return;
+    fpsAggRef.current = { last: performance.now(), count: 0 };
+    const onPose = () => {
+      const now = performance.now();
+      const agg = fpsAggRef.current;
+      agg.count += 1;
+      if (now - agg.last >= 1000) {
+        setEstFps(agg.count);
+        agg.count = 0;
+        agg.last = now;
+      }
+    };
+    window.addEventListener("motioncast:pose-update", onPose as EventListener);
+    return () =>
+      window.removeEventListener(
+        "motioncast:pose-update",
+        onPose as EventListener,
+      );
+  }, [openMetrics]);
+
+  // Sync metrics-enabled to bridge on mount and when toggled
+  useEffect(() => {
+    try {
+      window.dispatchEvent(
+        new CustomEvent("motioncast:metrics-enabled", { detail: openMetrics }),
+      );
+    } catch {
+      /* noop */
+    }
+  }, [openMetrics]);
 
   return (
     <main className="app-root">
@@ -117,7 +194,19 @@ function App() {
             <button
               type="button"
               className="metrics-toggle"
-              onClick={() => setOpenMetrics((v) => !v)}
+              onClick={() => {
+                const next = !openMetrics;
+                setOpenMetrics(next);
+                try {
+                  window.dispatchEvent(
+                    new CustomEvent("motioncast:metrics-enabled", {
+                      detail: next,
+                    }),
+                  );
+                } catch {
+                  /* noop */
+                }
+              }}
               aria-expanded={openMetrics}
               aria-controls="metrics"
             >
@@ -131,6 +220,11 @@ function App() {
                       ? `送信中 → udp://${oscInfo.addr ?? "?"}:${oscInfo.port ?? "?"} @ ${oscInfo.rate ?? "?"}fps [${oscInfo.schema ?? "?"}]`
                       : "停止中"
                   }`}
+                </pre>
+                <pre className="metrics-pre">
+                  {`推定FPS: ${estFps} / 送信: ${sendHz}Hz / 平均遅延: ${meanLatency.toFixed(1)}ms | 安定化: hold ${
+                    stab.hold
+                  } / fade ${stab.fade} / reacq ${stab.reacq}`}
                 </pre>
               </div>
             )}
