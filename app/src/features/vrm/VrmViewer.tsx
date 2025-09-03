@@ -141,7 +141,10 @@ export function VrmViewer() {
     hips.getWorldPosition(pH);
     const x = new THREE.Vector3().subVectors(pR, pL).normalize();
     const y = new THREE.Vector3()
-      .subVectors(new THREE.Vector3().addVectors(pL, pR).multiplyScalar(0.5), pH)
+      .subVectors(
+        new THREE.Vector3().addVectors(pL, pR).multiplyScalar(0.5),
+        pH,
+      )
       .normalize();
     const z = new THREE.Vector3().crossVectors(x, y).normalize();
     // Re-orthogonalize
@@ -151,24 +154,39 @@ export function VrmViewer() {
 
     // MP trunk basis at calibration from current 3D landmarks
     if (!d3.lShoulder || !d3.rShoulder || !(d3.lHip || d3.rHip)) return;
-    const pLs_m = new THREE.Vector3(d3.lShoulder.x, d3.lShoulder.y, d3.lShoulder.z);
-    const pRs_m = new THREE.Vector3(d3.rShoulder.x, d3.rShoulder.y, d3.rShoulder.z);
+    const pLs_m = new THREE.Vector3(
+      d3.lShoulder.x,
+      d3.lShoulder.y,
+      d3.lShoulder.z,
+    );
+    const pRs_m = new THREE.Vector3(
+      d3.rShoulder.x,
+      d3.rShoulder.y,
+      d3.rShoulder.z,
+    );
     const pLc_m = d3.lHip
       ? new THREE.Vector3(d3.lHip.x, d3.lHip.y, d3.lHip.z)
       : new THREE.Vector3(d3.rHip!.x, d3.rHip!.y, d3.rHip!.z);
     const pRc_m = d3.rHip
       ? new THREE.Vector3(d3.rHip.x, d3.rHip.y, d3.rHip.z)
       : new THREE.Vector3(d3.lHip!.x, d3.lHip!.y, d3.lHip!.z);
-    const pHc_m = new THREE.Vector3().addVectors(pLc_m, pRc_m).multiplyScalar(0.5);
+    const pHc_m = new THREE.Vector3()
+      .addVectors(pLc_m, pRc_m)
+      .multiplyScalar(0.5);
     const x_m0 = new THREE.Vector3().subVectors(pRs_m, pLs_m).normalize();
     const y_m0 = new THREE.Vector3()
-      .subVectors(new THREE.Vector3().addVectors(pLs_m, pRs_m).multiplyScalar(0.5), pHc_m)
+      .subVectors(
+        new THREE.Vector3().addVectors(pLs_m, pRs_m).multiplyScalar(0.5),
+        pHc_m,
+      )
       .normalize();
     const z_m0 = new THREE.Vector3().crossVectors(x_m0, y_m0).normalize();
     y_m0.crossVectors(z_m0, x_m0).normalize();
     const m_m0 = new THREE.Matrix4().makeBasis(x_m0, y_m0, z_m0);
     const trunkQuatMP0 = new THREE.Quaternion().setFromRotationMatrix(m_m0);
-    const trunkMap0 = trunkQuatVRM.clone().multiply(trunkQuatMP0.clone().invert());
+    const trunkMap0 = trunkQuatVRM
+      .clone()
+      .multiply(trunkQuatMP0.clone().invert());
 
     // Cache bone default world rotations and direction vectors
     const get = (name: VRMHumanBoneName) =>
@@ -206,54 +224,60 @@ export function VrmViewer() {
       trunkQuatMP0,
       trunkMap0,
       bones: {
-        lShoulder: lShoulderNode && lUpper
-          ? {
-              node: lShoulderNode,
-              child: lUpper,
-              qWorld0: qWorld(lShoulderNode),
-              dirWorld0: dirOf(lShoulderNode, lUpper)!,
-            }
-          : undefined,
-        rShoulder: rShoulderNode && rUpper
-          ? {
-              node: rShoulderNode,
-              child: rUpper,
-              qWorld0: qWorld(rShoulderNode),
-              dirWorld0: dirOf(rShoulderNode, rUpper)!,
-            }
-          : undefined,
-        lUpperArm: lUpper && lLower
-          ? {
-              node: lUpper,
-              child: lLower,
-              qWorld0: qWorld(lUpper),
-              dirWorld0: dirOf(lUpper, lLower)!,
-            }
-          : undefined,
-        rUpperArm: rUpper && rLower
-          ? {
-              node: rUpper,
-              child: rLower,
-              qWorld0: qWorld(rUpper),
-              dirWorld0: dirOf(rUpper, rLower)!,
-            }
-          : undefined,
-        lLowerArm: lLower && lHand
-          ? {
-              node: lLower,
-              child: lHand,
-              qWorld0: qWorld(lLower),
-              dirWorld0: dirOf(lLower, lHand)!,
-            }
-          : undefined,
-        rLowerArm: rLower && rHand
-          ? {
-              node: rLower,
-              child: rHand,
-              qWorld0: qWorld(rLower),
-              dirWorld0: dirOf(rLower, rHand)!,
-            }
-          : undefined,
+        lShoulder:
+          lShoulderNode && lUpper
+            ? {
+                node: lShoulderNode,
+                child: lUpper,
+                qWorld0: qWorld(lShoulderNode),
+                dirWorld0: dirOf(lShoulderNode, lUpper)!,
+              }
+            : undefined,
+        rShoulder:
+          rShoulderNode && rUpper
+            ? {
+                node: rShoulderNode,
+                child: rUpper,
+                qWorld0: qWorld(rShoulderNode),
+                dirWorld0: dirOf(rShoulderNode, rUpper)!,
+              }
+            : undefined,
+        lUpperArm:
+          lUpper && lLower
+            ? {
+                node: lUpper,
+                child: lLower,
+                qWorld0: qWorld(lUpper),
+                dirWorld0: dirOf(lUpper, lLower)!,
+              }
+            : undefined,
+        rUpperArm:
+          rUpper && rLower
+            ? {
+                node: rUpper,
+                child: rLower,
+                qWorld0: qWorld(rUpper),
+                dirWorld0: dirOf(rUpper, rLower)!,
+              }
+            : undefined,
+        lLowerArm:
+          lLower && lHand
+            ? {
+                node: lLower,
+                child: lHand,
+                qWorld0: qWorld(lLower),
+                dirWorld0: dirOf(lLower, lHand)!,
+              }
+            : undefined,
+        rLowerArm:
+          rLower && rHand
+            ? {
+                node: rLower,
+                child: rHand,
+                qWorld0: qWorld(rLower),
+                dirWorld0: dirOf(rLower, rHand)!,
+              }
+            : undefined,
         chest: chest
           ? {
               node: chest,
@@ -395,8 +419,7 @@ export function VrmViewer() {
         );
 
         // Helpers
-        const clamp = (x: number, a: number) =>
-          x < -a ? -a : x > a ? a : x;
+        const clamp = (x: number, a: number) => (x < -a ? -a : x > a ? a : x);
         const angleBetween = (
           ax: number,
           ay: number,
@@ -469,20 +492,39 @@ export function VrmViewer() {
         if (!calibRef.current) tryCalibrate3D();
         const calib = calibRef.current;
         const humanoid = vrmRef.current.humanoid;
-        if (calib && humanoid && u3.lShoulder && u3.rShoulder && (u3.lHip || u3.rHip)) {
+        if (
+          calib &&
+          humanoid &&
+          u3.lShoulder &&
+          u3.rShoulder &&
+          (u3.lHip || u3.rHip)
+        ) {
           // Build trunk basis from MediaPipe world
-          const pLs = new THREE.Vector3(u3.lShoulder.x, u3.lShoulder.y, u3.lShoulder.z);
-          const pRs = new THREE.Vector3(u3.rShoulder.x, u3.rShoulder.y, u3.rShoulder.z);
+          const pLs = new THREE.Vector3(
+            u3.lShoulder.x,
+            u3.lShoulder.y,
+            u3.lShoulder.z,
+          );
+          const pRs = new THREE.Vector3(
+            u3.rShoulder.x,
+            u3.rShoulder.y,
+            u3.rShoulder.z,
+          );
           const pLc = u3.lHip
             ? new THREE.Vector3(u3.lHip.x, u3.lHip.y, u3.lHip.z)
             : new THREE.Vector3(u3.rHip!.x, u3.rHip!.y, u3.rHip!.z);
           const pRc = u3.rHip
             ? new THREE.Vector3(u3.rHip.x, u3.rHip.y, u3.rHip.z)
             : new THREE.Vector3(u3.lHip!.x, u3.lHip!.y, u3.lHip!.z);
-          const pHc = new THREE.Vector3().addVectors(pLc, pRc).multiplyScalar(0.5);
+          const pHc = new THREE.Vector3()
+            .addVectors(pLc, pRc)
+            .multiplyScalar(0.5);
           const x_m = new THREE.Vector3().subVectors(pRs, pLs).normalize();
           const y_m = new THREE.Vector3()
-            .subVectors(new THREE.Vector3().addVectors(pLs, pRs).multiplyScalar(0.5), pHc)
+            .subVectors(
+              new THREE.Vector3().addVectors(pLs, pRs).multiplyScalar(0.5),
+              pHc,
+            )
             .normalize();
           const z_m = new THREE.Vector3().crossVectors(x_m, y_m).normalize();
           y_m.crossVectors(z_m, x_m).normalize();
@@ -499,12 +541,15 @@ export function VrmViewer() {
             const an = a.clone().normalize();
             const bn = b.clone().normalize();
             const dot = Math.max(-1, Math.min(1, an.dot(bn)));
-            if (dot > 0.9995) return { axis: new THREE.Vector3(1, 0, 0), angle: 0 };
+            if (dot > 0.9995)
+              return { axis: new THREE.Vector3(1, 0, 0), angle: 0 };
             if (dot < -0.9995) {
               // 180deg: choose an arbitrary orthogonal axis
               const axis = new THREE.Vector3(1, 0, 0);
               if (Math.abs(an.dot(axis)) > 0.9) axis.set(0, 1, 0);
-              const ortho = new THREE.Vector3().crossVectors(an, axis).normalize();
+              const ortho = new THREE.Vector3()
+                .crossVectors(an, axis)
+                .normalize();
               return { axis: ortho, angle: Math.PI };
             }
             const axis = new THREE.Vector3().crossVectors(an, bn).normalize();
@@ -526,7 +571,11 @@ export function VrmViewer() {
           };
 
           const applyBone = (
-            bone: { node: THREE.Object3D; qWorld0: THREE.Quaternion; dirWorld0: THREE.Vector3 },
+            bone: {
+              node: THREE.Object3D;
+              qWorld0: THREE.Quaternion;
+              dirWorld0: THREE.Vector3;
+            },
             parent: THREE.Object3D | null,
             targetA: THREE.Vector3,
             targetB: THREE.Vector3,
@@ -546,19 +595,21 @@ export function VrmViewer() {
             const q_world_target = bone.qWorld0.clone().premultiply(q_align);
             const q_parent_world = new THREE.Quaternion();
             parent?.getWorldQuaternion(q_parent_world);
-            const q_local_target = q_parent_world.clone().invert().multiply(q_world_target);
+            const q_local_target = q_parent_world
+              .clone()
+              .invert()
+              .multiply(q_world_target);
             // Slerp for smoothing
             bone.node.quaternion.slerp(q_local_target, smooth);
           };
 
           const bones = calib.bones;
-          const parentOf = (n?: THREE.Object3D | null) => (n ? (n.parent as THREE.Object3D | null) : null);
+          const parentOf = (n?: THREE.Object3D | null) =>
+            n ? (n.parent as THREE.Object3D | null) : null;
 
           // Left upper arm: shoulder->elbow
           // Shoulder (clavicle): small share towards shoulder->elbow
-          if (
-            bones.lShoulder && u3.lShoulder && u3.lElbow
-          ) {
+          if (bones.lShoulder && u3.lShoulder && u3.lElbow) {
             applyBone(
               bones.lShoulder,
               parentOf(bones.lShoulder.node),
@@ -568,9 +619,7 @@ export function VrmViewer() {
               { min: 0, max: 0.5 },
             );
           }
-          if (
-            bones.lUpperArm && u3.lShoulder && u3.lElbow
-          ) {
+          if (bones.lUpperArm && u3.lShoulder && u3.lElbow) {
             applyBone(
               bones.lUpperArm,
               parentOf(bones.lUpperArm.node),
@@ -582,9 +631,7 @@ export function VrmViewer() {
           }
           // Right upper arm: shoulder->elbow
           // Shoulder (clavicle): small share towards shoulder->elbow
-          if (
-            bones.rShoulder && u3.rShoulder && u3.rElbow
-          ) {
+          if (bones.rShoulder && u3.rShoulder && u3.rElbow) {
             applyBone(
               bones.rShoulder,
               parentOf(bones.rShoulder.node),
@@ -594,9 +641,7 @@ export function VrmViewer() {
               { min: 0, max: 0.5 },
             );
           }
-          if (
-            bones.rUpperArm && u3.rShoulder && u3.rElbow
-          ) {
+          if (bones.rUpperArm && u3.rShoulder && u3.rElbow) {
             applyBone(
               bones.rUpperArm,
               parentOf(bones.rUpperArm.node),
@@ -607,9 +652,7 @@ export function VrmViewer() {
             );
           }
           // Left lower arm: elbow->wrist
-          if (
-            bones.lLowerArm && u3.lElbow && u3.lWrist
-          ) {
+          if (bones.lLowerArm && u3.lElbow && u3.lWrist) {
             applyBone(
               bones.lLowerArm,
               parentOf(bones.lLowerArm.node),
@@ -620,9 +663,7 @@ export function VrmViewer() {
             );
           }
           // Right lower arm: elbow->wrist
-          if (
-            bones.rLowerArm && u3.rElbow && u3.rWrist
-          ) {
+          if (bones.rLowerArm && u3.rElbow && u3.rWrist) {
             applyBone(
               bones.rLowerArm,
               parentOf(bones.rLowerArm.node),
@@ -635,12 +676,16 @@ export function VrmViewer() {
           // Chest: align trunk gently
           if (calib.bones.chest) {
             // Apply trunk delta relative to calibration
-            const deltaMP = q_m.clone().multiply(calib.trunkQuatMP0.clone().invert());
+            const deltaMP = q_m
+              .clone()
+              .multiply(calib.trunkQuatMP0.clone().invert());
             const deltaVRM = calib.trunkMap0
               .clone()
               .multiply(deltaMP)
               .multiply(calib.trunkMap0.clone().invert());
-            const q_world_target = calib.bones.chest.qWorld0.clone().multiply(deltaVRM);
+            const q_world_target = calib.bones.chest.qWorld0
+              .clone()
+              .multiply(deltaVRM);
             const q_parent_world = new THREE.Quaternion();
             calib.bones.chest.node.parent?.getWorldQuaternion(q_parent_world);
             const q_local_target = q_parent_world

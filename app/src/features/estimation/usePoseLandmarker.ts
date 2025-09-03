@@ -149,7 +149,8 @@ export function usePoseLandmarker(enabled: boolean, fps = 15) {
       s.x += alpha3d * (p.x - s.x);
       s.y += alpha3d * (p.y - s.y);
       s.z += alpha3d * (p.z - s.z);
-      if (typeof p.v === "number") s.v = (s.v ?? 0) + alpha3d * (p.v - (s.v ?? 0));
+      if (typeof p.v === "number")
+        s.v = (s.v ?? 0) + alpha3d * (p.v - (s.v ?? 0));
       return s;
     };
 
@@ -216,7 +217,9 @@ export function usePoseLandmarker(enabled: boolean, fps = 15) {
         const world = res.worldLandmarks?.[0];
         if (world) {
           const pick3 = (i: number): PosePoint3D | undefined => {
-            const p = world[i] as { x: number; y: number; z: number; visibility?: number } | undefined;
+            const p = world[i] as
+              | { x: number; y: number; z: number; visibility?: number }
+              | undefined;
             if (!p) return undefined;
             return { x: p.x, y: p.y, z: p.z, v: p.visibility };
           };

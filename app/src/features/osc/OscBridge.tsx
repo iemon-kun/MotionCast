@@ -68,7 +68,10 @@ export function OscBridge() {
     };
     rafRef.current = requestAnimationFrame(tick);
     return () => {
-      window.removeEventListener("motioncast:pose-update", onPose as EventListener);
+      window.removeEventListener(
+        "motioncast:pose-update",
+        onPose as EventListener,
+      );
       window.removeEventListener(
         "motioncast:upper-body-quat",
         onUpper as EventListener,
