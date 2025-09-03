@@ -15,3 +15,4 @@ MD→GitHub Issues 同期と「番号の書き戻し」動作を確認するた�
 - 同期ワークフロー: .github/workflows/issues-sync-up.yml
 - パーサ/同期ロジック: .github/scripts/md-to-issues.mjs
 
+#### 同期テスト用差分
