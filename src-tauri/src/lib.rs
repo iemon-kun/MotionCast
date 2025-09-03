@@ -167,6 +167,14 @@ fn osc_set_schema(state: tauri::State<AppState>, schema: String) -> Result<(), S
   Ok(())
 }
 
+#[tauri::command]
+fn osc_set_smoothing_alpha(state: tauri::State<AppState>, alpha: f32) -> Result<(), String> {
+  let mut a = state.smoothing_alpha.lock().map_err(|_| "lock error")?;
+  let x = if alpha.is_nan() { 0.0 } else { alpha };
+  *a = if x < 0.0 { 0.0 } else if x > 1.0 { 1.0 } else { x };
+  Ok(())
+}
+
 fn config_file_path() -> PathBuf {
   // APPDATA (Windows) → HOME/.config (Unix) → current dir
   let mut base = if let Ok(dir) = env::var("APPDATA") {
