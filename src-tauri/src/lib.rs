@@ -112,7 +112,7 @@ fn osc_start(state: tauri::State<AppState>, addr: String, port: u16, rate_hz: u3
             (0.0, 0.0, 0.0, 0.0, 0.0)
           }
         };
-        let upper = shared_upper.lock().ok().cloned().unwrap_or_default();
+        let upper = shared_upper.lock().ok().map(|g| (*g).clone()).unwrap_or_default();
 
         // Smoothing (EMA)
         let alpha = shared_alpha.lock().ok().map(|g| *g).unwrap_or(0.2);
