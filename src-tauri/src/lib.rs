@@ -75,6 +75,19 @@ struct UpperBody {
 }
 
 #[tauri::command]
+fn osc_send_ping(addr: String, port: u16) -> Result<(), String> {
+    let sock = UdpSocket::bind("0.0.0.0:0").map_err(|e| e.to_string())?;
+    let target = format!("{}:{}", addr, port);
+    let msg = OscMessage {
+        addr: "/app/ping".to_string(),
+        args: vec![OscType::String("hello from tauri".into())],
+    };
+    let buf = encoder::encode(&OscPacket::Message(msg)).map_err(|e| e.to_string())?;
+    sock.send_to(&buf, &target).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
 fn osc_start(state: tauri::State<AppState>, addr: String, port: u16, rate_hz: u32) -> Result<(), String> {
   // 既存があれば停止
   if let Ok(mut guard) = state.sender.lock() {
@@ -303,6 +316,7 @@ pub fn run() {
     .manage(AppState::default())
     .invoke_handler(tauri::generate_handler![
       ping,
+      osc_send_ping,
       osc_start,
       osc_stop,
       osc_update,

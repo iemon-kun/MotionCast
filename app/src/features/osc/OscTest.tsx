@@ -41,6 +41,18 @@ export function OscTest() {
       return "med";
     }
   });
+  const [testResult, setTestResult] = useState<string>("");
+
+  const doPingTest = async () => {
+    setTestResult("送信中…");
+    try {
+      await invoke("osc_send_ping", { addr, port });
+      setTestResult("送信成功！");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "不明なエラー";
+      setTestResult(`送信失敗: ${msg}`);
+    }
+  };
 
   useEffect(() => {
     return () => {
@@ -158,10 +170,14 @@ export function OscTest() {
             開始
           </button>
         )}
+        <button className="btn" onClick={doPingTest}>
+          Pingテスト
+        </button>
       </div>
       <div className="ipc-row small">
         状態: {sending ? "送信中" : "停止中"} / 宛先 udp://{addr}:{port} @{" "}
         {rate}fps
+        {testResult && ` / Pingテスト結果: ${testResult}`}
       </div>
       {error && (
         <div className="camera-error" role="alert">
