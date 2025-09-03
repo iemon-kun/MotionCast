@@ -76,6 +76,20 @@ function stepToward(prev: Quat, target: Quat, maxRad: number): Quat {
   return slerp(prev, target, t);
 }
 
+// ---- Stabilizer helpers ----
+function clamp01(x: number): number {
+  if (!Number.isFinite(x)) return 0;
+  return Math.max(0, Math.min(1, x));
+}
+function clampMs(x: number): number {
+  const v = Number.isFinite(x) ? x : 0;
+  return Math.max(0, Math.min(5000, Math.round(v)));
+}
+function clampDeg(x: number): number {
+  const v = Number.isFinite(x) ? x : 0;
+  return Math.max(0, Math.min(1000, v));
+}
+
 type Phase = "normal" | "hold" | "fade" | "reacq";
 type BoneState = {
   phase: Phase;
@@ -111,6 +125,17 @@ export function OscBridge() {
   const latestRef = useRef<Pose | null>(null);
   const upperRef = useRef<UpperBody | null>(null); // latest measured local quats
   const upper3dRef = useRef<UpperBody3D | null>(null); // latest 3D joints with visibility
+  const cfgRef = useRef({
+    enabled: true,
+    visLost: VIS_LOST,
+    holdMs: HOLD_MS,
+    fadeMs: FADE_MS,
+    reacqMs: REACQ_MS,
+    chestMax: 120,
+    shoulderMax: 180,
+    upperLowerMax: 240,
+    wristMax: 360,
+  });
   const stateRef = useRef<Record<UBKey, BoneState>>({
     chest: { phase: "hold", lastSeen: 0, lastOut: IDENTITY },
     l_shoulder: { phase: "hold", lastSeen: 0, lastOut: IDENTITY },
@@ -147,6 +172,26 @@ export function OscBridge() {
       onUpper3d as EventListener,
     );
 
+    const onCfg = (ev: Event) => {
+      const ce = ev as CustomEvent<Partial<typeof cfgRef.current>>;
+      const cur = cfgRef.current;
+      cfgRef.current = {
+        enabled: ce.detail?.enabled ?? cur.enabled,
+        visLost: clamp01(ce.detail?.visLost ?? cur.visLost),
+        holdMs: clampMs(ce.detail?.holdMs ?? cur.holdMs),
+        fadeMs: clampMs(ce.detail?.fadeMs ?? cur.fadeMs),
+        reacqMs: clampMs(ce.detail?.reacqMs ?? cur.reacqMs),
+        chestMax: clampDeg(ce.detail?.chestMax ?? cur.chestMax),
+        shoulderMax: clampDeg(ce.detail?.shoulderMax ?? cur.shoulderMax),
+        upperLowerMax: clampDeg(ce.detail?.upperLowerMax ?? cur.upperLowerMax),
+        wristMax: clampDeg(ce.detail?.wristMax ?? cur.wristMax),
+      };
+    };
+    window.addEventListener(
+      "motioncast:stabilizer-params",
+      onCfg as EventListener,
+    );
+
     const tick = () => {
       rafRef.current = requestAnimationFrame(tick);
       const now = performance.now();
@@ -166,9 +211,33 @@ export function OscBridge() {
       }
       const upper = upperRef.current;
       if (upper) {
+        const cfg = cfgRef.current;
+        if (!cfg.enabled) {
+          invoke("osc_update_upper", { upper }).catch(() => {});
+          return;
+        }
         // Stabilize per-bone
         const u3 = upper3dRef.current;
         const nowMs = now;
+        const maxMap = (k: UBKey): number => {
+          switch (k) {
+            case "chest":
+              return cfg.chestMax;
+            case "l_shoulder":
+            case "r_shoulder":
+              return cfg.shoulderMax;
+            case "l_upper_arm":
+            case "r_upper_arm":
+            case "l_lower_arm":
+            case "r_lower_arm":
+              return cfg.upperLowerMax;
+            case "l_wrist":
+            case "r_wrist":
+              return cfg.wristMax;
+            default:
+              return 180;
+          }
+        };
         const makeVis = (key: UBKey): number => {
           // derive bone visibility from 3D joints
           const avg = (...xs: Array<number | undefined>) => {
@@ -222,10 +291,10 @@ export function OscBridge() {
           const prevOut = bs.lastOut;
           const prevUpdate = bs.lastUpdate ?? nowMs;
           const dt = Math.max(0, (nowMs - prevUpdate) / 1000);
-          const maxStep = (MAX_DEG_PER_S[k] || 180) * DEG2RAD * dt;
+          const maxStep = (maxMap(k) || 180) * DEG2RAD * dt;
 
           // Phase transitions
-          const isVisible = vis >= VIS_LOST && measured != null;
+          const isVisible = vis >= cfg.visLost && measured != null;
           if (isVisible) {
             bs.lastSeen = nowMs;
             bs.lastMeasured = measured!;
@@ -241,7 +310,7 @@ export function OscBridge() {
               bs.phase = "hold";
             }
             // escalate to fade after hold duration
-            if (nowMs - bs.lastSeen > HOLD_MS) {
+            if (nowMs - bs.lastSeen > cfg.holdMs) {
               if (bs.phase !== "fade") {
                 bs.phase = "fade";
                 bs.fadeStart = nowMs;
@@ -256,7 +325,7 @@ export function OscBridge() {
           } else if (bs.phase === "reacq") {
             const t = Math.min(
               1,
-              Math.max(0, (nowMs - (bs.reacqStart ?? nowMs)) / REACQ_MS),
+              Math.max(0, (nowMs - (bs.reacqStart ?? nowMs)) / cfg.reacqMs),
             );
             targetOut = slerp(prevOut, measured ?? prevOut, t);
           } else if (bs.phase === "hold") {
@@ -265,7 +334,7 @@ export function OscBridge() {
             // fade
             const t = Math.min(
               1,
-              Math.max(0, (nowMs - (bs.fadeStart ?? nowMs)) / FADE_MS),
+              Math.max(0, (nowMs - (bs.fadeStart ?? nowMs)) / cfg.fadeMs),
             );
             targetOut = slerp(prevOut, IDENTITY, t);
           }
@@ -296,6 +365,10 @@ export function OscBridge() {
       window.removeEventListener(
         "motioncast:upper-body-3d",
         onUpper3d as EventListener,
+      );
+      window.removeEventListener(
+        "motioncast:stabilizer-params",
+        onCfg as EventListener,
       );
       cancelAnimationFrame(rafRef.current);
     };

@@ -41,6 +41,129 @@ export function OscTest() {
       return "med";
     }
   });
+  // Stabilizer UI state (persisted)
+  const [stabEnabled, setStabEnabled] = useState<boolean>(() => {
+    try {
+      return (localStorage.getItem("stab.enabled") ?? "true") !== "false";
+    } catch {
+      return true;
+    }
+  });
+  const [visLost, setVisLost] = useState<number>(() => {
+    try {
+      const v = Number(localStorage.getItem("stab.visLost"));
+      return Number.isFinite(v) ? v : 0.3;
+    } catch {
+      return 0.3;
+    }
+  });
+  const [holdMs, setHoldMs] = useState<number>(() => {
+    try {
+      const v = Number(localStorage.getItem("stab.holdMs"));
+      return Number.isFinite(v) ? v : 400;
+    } catch {
+      return 400;
+    }
+  });
+  const [fadeMs, setFadeMs] = useState<number>(() => {
+    try {
+      const v = Number(localStorage.getItem("stab.fadeMs"));
+      return Number.isFinite(v) ? v : 800;
+    } catch {
+      return 800;
+    }
+  });
+  const [reacqMs, setReacqMs] = useState<number>(() => {
+    try {
+      const v = Number(localStorage.getItem("stab.reacqMs"));
+      return Number.isFinite(v) ? v : 300;
+    } catch {
+      return 300;
+    }
+  });
+  const [chestMax, setChestMax] = useState<number>(() => {
+    try {
+      const v = Number(localStorage.getItem("stab.chestMax"));
+      return Number.isFinite(v) ? v : 120;
+    } catch {
+      return 120;
+    }
+  });
+  const [shoulderMax, setShoulderMax] = useState<number>(() => {
+    try {
+      const v = Number(localStorage.getItem("stab.shoulderMax"));
+      return Number.isFinite(v) ? v : 180;
+    } catch {
+      return 180;
+    }
+  });
+  const [armMax, setArmMax] = useState<number>(() => {
+    try {
+      const v = Number(localStorage.getItem("stab.armMax"));
+      return Number.isFinite(v) ? v : 240;
+    } catch {
+      return 240;
+    }
+  });
+  const [wristMax, setWristMax] = useState<number>(() => {
+    try {
+      const v = Number(localStorage.getItem("stab.wristMax"));
+      return Number.isFinite(v) ? v : 360;
+    } catch {
+      return 360;
+    }
+  });
+
+  const publishStab = () => {
+    try {
+      window.dispatchEvent(
+        new CustomEvent("motioncast:stabilizer-params", {
+          detail: {
+            enabled: stabEnabled,
+            visLost,
+            holdMs,
+            fadeMs,
+            reacqMs,
+            chestMax,
+            shoulderMax,
+            upperLowerMax: armMax,
+            wristMax,
+          },
+        }),
+      );
+    } catch {
+      /* noop */
+    }
+  };
+
+  useEffect(() => {
+    publishStab();
+    // persist
+    try {
+      localStorage.setItem("stab.enabled", String(stabEnabled));
+      localStorage.setItem("stab.visLost", String(visLost));
+      localStorage.setItem("stab.holdMs", String(holdMs));
+      localStorage.setItem("stab.fadeMs", String(fadeMs));
+      localStorage.setItem("stab.reacqMs", String(reacqMs));
+      localStorage.setItem("stab.chestMax", String(chestMax));
+      localStorage.setItem("stab.shoulderMax", String(shoulderMax));
+      localStorage.setItem("stab.armMax", String(armMax));
+      localStorage.setItem("stab.wristMax", String(wristMax));
+    } catch {
+      /* ignore */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    stabEnabled,
+    visLost,
+    holdMs,
+    fadeMs,
+    reacqMs,
+    chestMax,
+    shoulderMax,
+    armMax,
+    wristMax,
+  ]);
 
   useEffect(() => {
     return () => {
@@ -169,6 +292,131 @@ export function OscTest() {
           {error}
         </div>
       )}
+      <div className="ipc-row" style={{ marginTop: 8 }}>
+        <label>
+          <input
+            type="checkbox"
+            checked={stabEnabled}
+            onChange={(e) => setStabEnabled(e.target.checked)}
+          />
+          <span style={{ marginLeft: 6 }}>安定化を有効化</span>
+        </label>
+        <label>
+          <span className="sr-only">可視性閾値</span>
+          <input
+            type="number"
+            step={0.05}
+            min={0}
+            max={1}
+            value={visLost}
+            onChange={(e) =>
+              setVisLost(Math.max(0, Math.min(1, Number(e.target.value) || 0)))
+            }
+            className="input-number"
+          />
+          <span style={{ marginLeft: 4 }}>vis</span>
+        </label>
+        <label>
+          <input
+            type="number"
+            min={0}
+            max={5000}
+            step={50}
+            value={holdMs}
+            onChange={(e) =>
+              setHoldMs(Math.max(0, Number(e.target.value) || 0))
+            }
+            className="input-number"
+          />
+          <span style={{ marginLeft: 4 }}>hold(ms)</span>
+        </label>
+        <label>
+          <input
+            type="number"
+            min={0}
+            max={5000}
+            step={50}
+            value={fadeMs}
+            onChange={(e) =>
+              setFadeMs(Math.max(0, Number(e.target.value) || 0))
+            }
+            className="input-number"
+          />
+          <span style={{ marginLeft: 4 }}>fade(ms)</span>
+        </label>
+        <label>
+          <input
+            type="number"
+            min={0}
+            max={5000}
+            step={50}
+            value={reacqMs}
+            onChange={(e) =>
+              setReacqMs(Math.max(0, Number(e.target.value) || 0))
+            }
+            className="input-number"
+          />
+          <span style={{ marginLeft: 4 }}>reacq(ms)</span>
+        </label>
+      </div>
+      <div className="ipc-row" style={{ marginTop: 6 }}>
+        <label>
+          <input
+            type="number"
+            min={0}
+            max={1000}
+            step={10}
+            value={chestMax}
+            onChange={(e) =>
+              setChestMax(Math.max(0, Number(e.target.value) || 0))
+            }
+            className="input-number"
+          />
+          <span style={{ marginLeft: 4 }}>chest(deg/s)</span>
+        </label>
+        <label>
+          <input
+            type="number"
+            min={0}
+            max={1000}
+            step={10}
+            value={shoulderMax}
+            onChange={(e) =>
+              setShoulderMax(Math.max(0, Number(e.target.value) || 0))
+            }
+            className="input-number"
+          />
+          <span style={{ marginLeft: 4 }}>shoulder</span>
+        </label>
+        <label>
+          <input
+            type="number"
+            min={0}
+            max={1000}
+            step={10}
+            value={armMax}
+            onChange={(e) =>
+              setArmMax(Math.max(0, Number(e.target.value) || 0))
+            }
+            className="input-number"
+          />
+          <span style={{ marginLeft: 4 }}>upper/lower</span>
+        </label>
+        <label>
+          <input
+            type="number"
+            min={0}
+            max={1000}
+            step={10}
+            value={wristMax}
+            onChange={(e) =>
+              setWristMax(Math.max(0, Number(e.target.value) || 0))
+            }
+            className="input-number"
+          />
+          <span style={{ marginLeft: 4 }}>wrist</span>
+        </label>
+      </div>
       <div className="ipc-row small">
         {schema === "minimal"
           ? "アドレス: /mc/ping, /mc/blink, /mc/mouth, /mc/head(yawDeg,pitchDeg,rollDeg)"
