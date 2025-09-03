@@ -1,0 +1,62 @@
+name: Sync MD -> Issues
+
+on:
+  push:
+    paths:
+      - "Docs/issues/**/*.md"
+
+concurrency:
+  group: issues-sync-up-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  md_to_issue:
+    if: >-
+      ${{ github.actor != 'github-actions[bot]' &&
+          !contains(github.event.head_commit.message, '[skip md-sync]') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect changed MD files
+        id: diff
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="${{ github.event.before }}"
+          HEAD="${{ github.sha }}"
+          if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ]; then
+            BASE="$(git rev-list --max-parents=0 "$HEAD" | tail -n1)"
+          fi
+          CHANGED=$(git diff --name-only "$BASE" "$HEAD" | grep '^Docs/issues/.*\.md$' || true)
+          echo "changed<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$CHANGED" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Node.js
+        if: steps.diff.outputs.changed != ''
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install parser deps (gray-matter)
+        if: steps.diff.outputs.changed != ''
+        run: |
+          set -euo pipefail
+          cd .github/scripts
+          npm init -y --silent
+          npm install --no-audit --no-fund gray-matter@4
+
+      - name: Run sync script
+        if: steps.diff.outputs.changed != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          CHANGED_FILES: ${{ steps.diff.outputs.changed }}
+        run: |
+          node .github/scripts/md-to-issues.mjs
+
