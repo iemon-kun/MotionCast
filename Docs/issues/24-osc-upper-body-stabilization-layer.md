@@ -1,3 +1,6 @@
+---
+issue: 4
+---
 ## 目的 / 対象 / 背景
 - 目的: 画面外や遮蔽時の腕姿勢を自然に保つため、送信側に「安定化レイヤー（可視性ゲート＋ホールド→中立フェード）」を導入する。
 - 対象: 送信パイプライン（上半身）。主に `app/src/features/estimation/usePoseLandmarker.ts`（可視性/座標の取得）、`app/src/features/osc/OscBridge.tsx`（送信連携）、必要に応じて `src-tauri/src/lib.rs`（直前の抑制）
