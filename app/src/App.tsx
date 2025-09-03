@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import "./App.css";
 import { CameraPreview } from "./features/camera/CameraPreview";
 import { VrmPlaceholder } from "./features/vrm/VrmPlaceholder";
@@ -12,6 +12,33 @@ import { saveLocalStorageToConfig } from "./lib/config";
 function App() {
   const [showSidebar, setShowSidebar] = useState(true);
   const [openMetrics, setOpenMetrics] = useState(true);
+  const [oscInfo, setOscInfo] = useState<{
+    sending: boolean;
+    addr?: string;
+    port?: number;
+    rate?: number;
+    schema?: string;
+  } | null>(null);
+
+  useEffect(() => {
+    const onOsc = (ev: Event) => {
+      const ce = ev as CustomEvent<{
+        sending: boolean;
+        addr?: string;
+        port?: number;
+        rate?: number;
+        schema?: string;
+      }>;
+      if (!ce.detail) return;
+      setOscInfo(ce.detail);
+    };
+    window.addEventListener("motioncast:osc-state", onOsc as EventListener);
+    return () =>
+      window.removeEventListener(
+        "motioncast:osc-state",
+        onOsc as EventListener,
+      );
+  }, []);
 
   return (
     <main className="app-root">
@@ -91,7 +118,11 @@ function App() {
             {openMetrics && (
               <div id="metrics" className="metrics-body">
                 <pre className="metrics-pre">
-                  アプリ起動: OK カメラ: 状態はUIを参照 OSC送信: 未実装
+                  {`アプリ起動: OK  カメラ: 状態はUIを参照  OSC送信: ${
+                    oscInfo?.sending
+                      ? `送信中 → udp://${oscInfo.addr ?? "?"}:${oscInfo.port ?? "?"} @ ${oscInfo.rate ?? "?"}fps [${oscInfo.schema ?? "?"}]`
+                      : "停止中"
+                  }`}
                 </pre>
               </div>
             )}
