@@ -51,6 +51,7 @@ enum Schema {
   Minimal,
   ClusterBasic,
   McUpper, // Minimal + upper-body quaternions under /mc/ub/*
+  Vmc,     // /VMC/Ext/Bone/Pos (subset)
 }
 
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
@@ -72,6 +73,79 @@ struct UpperBody {
   r_lower_arm: Option<Quat>,
   l_wrist: Option<Quat>,
   r_wrist: Option<Quat>,
+}
+
+// Convert a unit quaternion (right-handed, Three.js-like) into a quaternion
+// appropriate for VMC (/VMC/Ext/Bone/Pos) under Cluster by flipping Z axis
+// handedness via basis change: R' = S R S, S = diag(1,1,-1).
+fn quat_flip_z_basis(q: &Quat) -> Quat {
+  // Quaternion -> rotation matrix (3x3)
+  let x = q.x as f64;
+  let y = q.y as f64;
+  let z = q.z as f64;
+  let w = q.w as f64;
+  let x2 = x + x;
+  let y2 = y + y;
+  let z2 = z + z;
+  let xx = x * x2;
+  let yy = y * y2;
+  let zz = z * z2;
+  let xy = x * y2;
+  let xz = x * z2;
+  let yz = y * z2;
+  let wx = w * x2;
+  let wy = w * y2;
+  let wz = w * z2;
+  let r00 = 1.0 - (yy + zz);
+  let r01 = xy - wz;
+  let r02 = xz + wy;
+  let r10 = xy + wz;
+  let r11 = 1.0 - (xx + zz);
+  let r12 = yz - wx;
+  let r20 = xz - wy;
+  let r21 = yz + wx;
+  let r22 = 1.0 - (xx + yy);
+
+  // Apply basis flip: R' = S R S, with S = diag(1,1,-1)
+  let m00 = r00; let m01 = r01; let m02 = -r02;
+  let m10 = r10; let m11 = r11; let m12 = -r12;
+  let m20 = -r20; let m21 = -r21; let m22 = r22;
+
+  // Rotation matrix -> quaternion (normalized)
+  let trace = m00 + m11 + m22;
+  let (qw, qx, qy, qz);
+  if trace > 0.0 {
+    let s = (trace + 1.0).sqrt() * 2.0; // s = 4*qw
+    qw = 0.25 * s;
+    qx = (m21 - m12) / s;
+    qy = (m02 - m20) / s;
+    qz = (m10 - m01) / s;
+  } else if m00 > m11 && m00 > m22 {
+    let s = (1.0 + m00 - m11 - m22).sqrt() * 2.0; // s = 4*qx
+    qw = (m21 - m12) / s;
+    qx = 0.25 * s;
+    qy = (m01 + m10) / s;
+    qz = (m02 + m20) / s;
+  } else if m11 > m22 {
+    let s = (1.0 + m11 - m00 - m22).sqrt() * 2.0; // s = 4*qy
+    qw = (m02 - m20) / s;
+    qx = (m01 + m10) / s;
+    qy = 0.25 * s;
+    qz = (m12 + m21) / s;
+  } else {
+    let s = (1.0 + m22 - m00 - m11).sqrt() * 2.0; // s = 4*qz
+    qw = (m10 - m01) / s;
+    qx = (m02 + m20) / s;
+    qy = (m12 + m21) / s;
+    qz = 0.25 * s;
+  }
+  // Normalize and cast back to f32
+  let norm = (qw*qw + qx*qx + qy*qy + qz*qz).sqrt();
+  if norm > 0.0 {
+    Quat { x: (qx/norm) as f32, y: (qy/norm) as f32, z: (qz/norm) as f32, w: (qw/norm) as f32 }
+  } else {
+    Quat { x: 0.0, y: 0.0, z: 0.0, w: 1.0 }
+  }
 }
 
 #[tauri::command]
@@ -149,6 +223,10 @@ fn osc_start(state: tauri::State<AppState>, addr: String, port: u16, rate_hz: u3
             OscPacket::Message(OscMessage { addr: "/mc/mouth".to_string(), args: vec![OscType::Float(smoothed.mouth)] }),
             OscPacket::Message(OscMessage { addr: "/mc/head".to_string(), args: vec![OscType::Float(yaw_deg), OscType::Float(pitch_deg), OscType::Float(roll_deg)] }),
           ],
+          Schema::Vmc => vec![
+            // VMC: send a subset of bones we have as local rotation; position is zero.
+            // Note: coordinate alignment with Cluster humanoid may need adjustment later.
+          ],
         };
         if let Schema::McUpper = schema {
           let mut push_q = |addr: &str, q: &Option<Quat>| {
@@ -173,6 +251,39 @@ fn osc_start(state: tauri::State<AppState>, addr: String, port: u16, rate_hz: u3
           push_q("/mc/ub/r_lower_arm", &upper.r_lower_arm);
           push_q("/mc/ub/l_wrist", &upper.l_wrist);
           push_q("/mc/ub/r_wrist", &upper.r_wrist);
+        }
+        if let Schema::Vmc = schema {
+          // Helper to push /VMC/Ext/Bone/Pos with zero position and given quaternion
+          let mut push_vmc = |name: &str, q: &Option<Quat>| {
+            if let Some(qv) = q {
+              // Flip Z-basis to align VRM(Three.js) local space with Cluster/VMC expectation
+              let tq = quat_flip_z_basis(qv);
+              content.push(OscPacket::Message(OscMessage {
+                addr: "/VMC/Ext/Bone/Pos".to_string(),
+                args: vec![
+                  OscType::String(name.to_string()), // bone name
+                  OscType::Float(0.0), // px
+                  OscType::Float(0.0), // py
+                  OscType::Float(0.0), // pz
+                  OscType::Float(tq.x),
+                  OscType::Float(tq.y),
+                  OscType::Float(tq.z),
+                  OscType::Float(tq.w),
+                ],
+              }));
+            }
+          };
+          // Map available upper-body quaternions to VMC bone names
+          push_vmc("Chest", &upper.chest);
+          push_vmc("LeftShoulder", &upper.l_shoulder);
+          push_vmc("RightShoulder", &upper.r_shoulder);
+          push_vmc("LeftUpperArm", &upper.l_upper_arm);
+          push_vmc("RightUpperArm", &upper.r_upper_arm);
+          push_vmc("LeftLowerArm", &upper.l_lower_arm);
+          push_vmc("RightLowerArm", &upper.r_lower_arm);
+          push_vmc("LeftHand", &upper.l_wrist);
+          push_vmc("RightHand", &upper.r_wrist);
+          // Head is not sent here due to potential axis mismatch; can be added later if needed.
         }
         for p in content {
           if let Ok(buf) = encoder::encode(&p) { let _ = sock.send_to(&buf, &target); }
@@ -232,6 +343,7 @@ fn osc_set_schema(state: tauri::State<AppState>, schema: String) -> Result<(), S
   *s = match normalized.as_str() {
     "cluster" | "cluster-basic" | "cluster_basic" => Schema::ClusterBasic,
     "upper" | "mc-upper" | "mc_upper" | "ub" => Schema::McUpper,
+    "vmc" | "vmd" | "vmc-ext" | "vmc_ext" => Schema::Vmc,
     _ => Schema::Minimal,
   };
   Ok(())

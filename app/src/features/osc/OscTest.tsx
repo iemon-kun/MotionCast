@@ -4,17 +4,17 @@ import { invoke } from "@tauri-apps/api/core";
 export function OscTest() {
   const [addr, setAddr] = useState<string>(() => {
     try {
-      return localStorage.getItem("osc.addr") || "127.0.0.1";
+      return localStorage.getItem("osc.addr") || "192.168.2.103";
     } catch {
-      return "127.0.0.1";
+      return "192.168.2.103";
     }
   });
   const [port, setPort] = useState<number>(() => {
     try {
       const v = Number(localStorage.getItem("osc.port"));
-      return Number.isFinite(v) && v > 0 ? v : 39540;
+      return Number.isFinite(v) && v > 0 ? v : 9000;
     } catch {
-      return 39540;
+      return 9000;
     }
   });
   const [rate, setRate] = useState<number>(() => {
@@ -138,6 +138,7 @@ export function OscTest() {
           <option value="minimal">minimal</option>
           <option value="cluster">cluster-basic</option>
           <option value="mc-upper">mc-upper (head+face+upper-body quat)</option>
+          <option value="vmc">vmc (/VMC/Ext/Bone/Pos subset)</option>
         </select>
         <select
           value={smooth}
@@ -173,7 +174,9 @@ export function OscTest() {
           ? "アドレス: /mc/ping, /mc/blink, /mc/mouth, /mc/head(yawDeg,pitchDeg,rollDeg)"
           : schema.startsWith("cluster")
             ? "アドレス: /cluster/face/blink, /cluster/face/jawOpen, /cluster/head/euler(yawDeg,pitchDeg,rollDeg)"
-            : "アドレス: /mc/ping, /mc/blink, /mc/mouth, /mc/head(...), /mc/ub/(chest|l_shoulder|r_shoulder|l_upper_arm|r_upper_arm|l_lower_arm|r_lower_arm|l_wrist|r_wrist) qx qy qz qw"}
+            : schema === "mc-upper"
+              ? "アドレス: /mc/ping, /mc/blink, /mc/mouth, /mc/head(...), /mc/ub/(chest|l_shoulder|r_shoulder|l_upper_arm|r_upper_arm|l_lower_arm|r_lower_arm|l_wrist|r_wrist) qx qy qz qw"
+              : "アドレス: /VMC/Ext/Bone/Pos [name, px,py,pz, qx,qy,qz,qw]（上半身サブセットのみ送信）"}
       </div>
     </div>
   );

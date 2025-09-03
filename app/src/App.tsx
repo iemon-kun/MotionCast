@@ -12,6 +12,7 @@ import { saveLocalStorageToConfig } from "./lib/config";
 function App() {
   const [showSidebar, setShowSidebar] = useState(true);
   const [openMetrics, setOpenMetrics] = useState(true);
+  const [cameraActive, setCameraActive] = useState(false);
   const [oscInfo, setOscInfo] = useState<{
     sending: boolean;
     addr?: string;
@@ -33,11 +34,18 @@ function App() {
       setOscInfo(ce.detail);
     };
     window.addEventListener("motioncast:osc-state", onOsc as EventListener);
-    return () =>
+    const onCamOn: EventListener = () => setCameraActive(true);
+    const onCamOff: EventListener = () => setCameraActive(false);
+    window.addEventListener("motioncast:camera-stream", onCamOn);
+    window.addEventListener("motioncast:camera-stopped", onCamOff);
+    return () => {
       window.removeEventListener(
         "motioncast:osc-state",
         onOsc as EventListener,
       );
+      window.removeEventListener("motioncast:camera-stream", onCamOn);
+      window.removeEventListener("motioncast:camera-stopped", onCamOff);
+    };
   }, []);
 
   return (
@@ -118,7 +126,7 @@ function App() {
             {openMetrics && (
               <div id="metrics" className="metrics-body">
                 <pre className="metrics-pre">
-                  {`アプリ起動: OK  カメラ: 状態はUIを参照  OSC送信: ${
+                  {`アプリ起動: OK  カメラ: ${cameraActive ? "稼働中" : "停止中"}  OSC送信: ${
                     oscInfo?.sending
                       ? `送信中 → udp://${oscInfo.addr ?? "?"}:${oscInfo.port ?? "?"} @ ${oscInfo.rate ?? "?"}fps [${oscInfo.schema ?? "?"}]`
                       : "停止中"

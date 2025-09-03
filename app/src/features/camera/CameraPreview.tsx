@@ -11,6 +11,8 @@ export function CameraPreview() {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [active, setActive] = useState(false);
+  // Avoid concurrent start() calls and race conditions
+  const startLockRef = useRef(false);
   const [devices, setDevices] = useState<
     Array<{ deviceId: string; label: string }>
   >([]);
@@ -62,6 +64,13 @@ export function CameraPreview() {
       for (const track of stream.getTracks()) track.stop();
       setStream(null);
     }
+    // Detach from <video> to fully release sinks
+    try {
+      const el = videoRef.current;
+      if (el) el.srcObject = null;
+    } catch {
+      /* ignore */
+    }
     setActive(false);
     try {
       window.dispatchEvent(new CustomEvent("motioncast:camera-stopped"));
@@ -72,11 +81,20 @@ export function CameraPreview() {
 
   const start = useCallback(
     async (opts?: StartOptions) => {
+      if (startLockRef.current) return; // prevent re-entrancy
+      startLockRef.current = true;
       try {
         setError(null);
         // 既存ストリームがあれば停止
         if (stream) {
-          for (const track of stream.getTracks()) track.stop();
+          try {
+            for (const track of stream.getTracks()) track.stop();
+          } catch {
+            /* ignore */
+          }
+          setStream(null);
+          const el0 = videoRef.current;
+          if (el0) el0.srcObject = null;
         }
         const { width, height } = parseResolution(
           opts?.width && opts?.height
@@ -99,11 +117,33 @@ export function CameraPreview() {
           video: videoConstraints,
           audio: false,
         };
-        const s = await navigator.mediaDevices.getUserMedia(constraints);
-        setStream(s);
+        // Try with selected device first; on NotFound/Overconstrained, fallback without deviceId
+        let s: MediaStream | null = null;
+        try {
+          s = await navigator.mediaDevices.getUserMedia(constraints);
+        } catch (err) {
+          const name = (err as { name?: string } | undefined)?.name || "";
+          const over = name === "OverconstrainedError" || name === "NotFoundError";
+          if (over && selectedId) {
+            try {
+              const vc2: MediaTrackConstraints = { ...videoConstraints };
+              delete (vc2 as any).deviceId;
+              s = await navigator.mediaDevices.getUserMedia({ video: vc2, audio: false });
+              // Reset invalid persisted deviceId
+              setSelectedId("");
+              try { localStorage.setItem("camera.deviceId", ""); } catch { /* ignore */ }
+            } catch (e2) {
+              throw err; // keep original error message
+            }
+          } else {
+            throw err;
+          }
+        }
+        const sNonNull = s as MediaStream;
+        setStream(sNonNull);
         setActive(true);
         // 実測値の更新
-        const t = s.getVideoTracks()[0];
+        const t = sNonNull.getVideoTracks()[0];
         if (t) {
           const st = t.getSettings();
           setMeasW(typeof st.width === "number" ? st.width : null);
@@ -116,7 +156,7 @@ export function CameraPreview() {
         }
         const el = videoRef.current;
         if (el) {
-          el.srcObject = s;
+          el.srcObject = sNonNull;
           try {
             await el.play();
           } catch {
@@ -148,14 +188,26 @@ export function CameraPreview() {
         const msg = e instanceof Error ? e.message : "不明なエラー";
         setError(`カメラにアクセスできません: ${msg}`);
         setActive(false);
+      } finally {
+        startLockRef.current = false;
       }
     },
     [stream, selectedId, resolution, fps, parseResolution],
   );
 
+  // Unmount cleanup: stop any tracks without toggling UI state/events
   useEffect(() => {
-    return () => stop();
-  }, [stop]);
+    return () => {
+      try {
+        const s = (videoRef.current?.srcObject as MediaStream | null) ?? stream;
+        if (s) {
+          for (const track of s.getTracks()) track.stop();
+        }
+      } catch {
+        /* ignore */
+      }
+    };
+  }, []);
 
   // デバイス一覧を取得
   const refreshDevices = useCallback(async () => {
@@ -291,10 +343,8 @@ export function CameraPreview() {
             } catch {
               void 0;
             }
-            if (!next && active) {
-              // 非表示にする際はストリームを停止して負荷を下げる
-              stop();
-            }
+            // プレビューの表示/非表示はストリーム制御と切り離す。
+            // 継続して推定/送信が動くよう、ここでは停止しない。
           }}
         >
           {visible ? "カメラ非表示" : "カメラ表示"}
@@ -380,6 +430,7 @@ export function CameraPreview() {
       <div className="camera-measured" aria-live="polite">
         実測: {measW && measH ? `${measW}x${measH}` : "-"} /
         {measFps != null ? ` ${Math.round(measFps * 100) / 100}fps` : " -fps"}
+        {' '}| 状態: {active ? '稼働中' : '停止中'}
       </div>
       {visible && error && (
         <div className="camera-error" role="alert">
@@ -399,11 +450,19 @@ export function CameraPreview() {
           </div>
         </div>
       )}
-      {visible && (
-        <div className="camera-preview">
-          <video ref={videoRef} muted playsInline className="camera-video" />
-        </div>
-      )}
+      <div
+        className="camera-preview"
+        style={{ display: visible ? "block" : "none" }}
+        aria-hidden={!visible}
+      >
+        <video
+          ref={videoRef}
+          muted
+          playsInline
+          autoPlay
+          className="camera-video"
+        />
+      </div>
     </section>
   );
 }

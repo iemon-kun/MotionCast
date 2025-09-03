@@ -61,8 +61,8 @@ export default function App() {
   const [fps, setFps] = useStickyState("ui.fps", 30);
   const [vrmName, setVrmName] = useStickyState("ui.vrm", "未読み込み");
   const [preset, setPreset] = useStickyState("ui.preset", "MVP: 上半身+基本表情");
-  const [addr, setAddr] = useStickyState("ui.addr", "127.0.0.1");
-  const [port, setPort] = useStickyState("ui.port", 39540);
+  const [addr, setAddr] = useStickyState("ui.addr", "192.168.2.103");
+  const [port, setPort] = useStickyState("ui.port", 9000);
   const [blink, setBlink] = useStickyState("ui.blink", 0.5);
   const [mouth, setMouth] = useStickyState("ui.mouth", 0.25);
   const [showCamera, setShowCamera] = useStickyState("ui.showCamera", true);
