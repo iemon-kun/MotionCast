@@ -254,18 +254,27 @@ export function OscBridge() {
           if (bs.phase === "normal") {
             targetOut = measured ?? prevOut;
           } else if (bs.phase === "reacq") {
-            const t = Math.min(1, Math.max(0, (nowMs - (bs.reacqStart ?? nowMs)) / REACQ_MS));
+            const t = Math.min(
+              1,
+              Math.max(0, (nowMs - (bs.reacqStart ?? nowMs)) / REACQ_MS),
+            );
             targetOut = slerp(prevOut, measured ?? prevOut, t);
           } else if (bs.phase === "hold") {
             targetOut = prevOut; // keep last
           } else {
             // fade
-            const t = Math.min(1, Math.max(0, (nowMs - (bs.fadeStart ?? nowMs)) / FADE_MS));
+            const t = Math.min(
+              1,
+              Math.max(0, (nowMs - (bs.fadeStart ?? nowMs)) / FADE_MS),
+            );
             targetOut = slerp(prevOut, IDENTITY, t);
           }
 
           // Angular velocity clamp (except pure hold)
-          const out = bs.phase === "hold" ? targetOut : stepToward(prevOut, targetOut, maxStep);
+          const out =
+            bs.phase === "hold"
+              ? targetOut
+              : stepToward(prevOut, targetOut, maxStep);
           bs.lastOut = out;
           bs.lastUpdate = nowMs;
           (stabilized as Record<string, Quat | undefined>)[k] = out;
