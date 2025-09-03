@@ -441,7 +441,7 @@ export function CameraPreview() {
       <div className="camera-measured" aria-live="polite">
         実測: {measW && measH ? `${measW}x${measH}` : "-"} /
         {measFps != null ? ` ${Math.round(measFps * 100) / 100}fps` : " -fps"}
-        {' '}| 状態: {active ? '稼働中' : '停止中'}
+        {" "}| 状態: {active ? "稼働中" : "停止中"}
       </div>
       {visible && error && (
         <div className="camera-error" role="alert">
