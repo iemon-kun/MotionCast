@@ -2,7 +2,7 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "MotionCast",
   "version": "0.1.0",
-  "identifier": "com.tauri.dev",
+  "identifier": "io.github.iemonkun.motioncast",
   "build": {
     "frontendDist": "app/dist",
     "devUrl": "http://localhost:5173",
