@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "identifier": "io.github.iemonkun.motioncast",
   "build": {
-    "frontendDist": "app/dist",
+    "frontendDist": "../app/dist",
     "devUrl": "http://localhost:5173",
     "beforeDevCommand": "npm run dev --prefix app",
     "beforeBuildCommand": "npm run build --prefix app"
