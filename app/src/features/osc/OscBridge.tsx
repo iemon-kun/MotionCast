@@ -114,6 +114,11 @@ export function OscBridge() {
   const latestRef = useRef<Pose | null>(null);
   const upperRef = useRef<UpperBody | null>(null); // latest measured local quats
   const upper3dRef = useRef<UpperBody3D | null>(null); // latest 3D joints with visibility
+  // 表情ソース: raw | vrm
+  const exprSourceRef = useRef<"raw" | "vrm">("raw");
+  const vrmExprRef = useRef<{ blink?: number; mouth?: number; ts?: number } | null>(
+    null,
+  );
   // Lightweight metrics (enabled via UI toggle)
   const metricsEnabledRef = useRef<boolean>(false);
   const tickCountRef = useRef<number>(0);
@@ -174,6 +179,25 @@ export function OscBridge() {
       onUpper3d as EventListener,
     );
 
+    // 表情ソース切替とVRM表情値
+    const onExprSrc = (ev: Event) => {
+      const ce = ev as CustomEvent<unknown>;
+      const v = (ce?.detail as unknown) as string;
+      exprSourceRef.current = v === "vrm" ? "vrm" : "raw";
+    };
+    const onVrmExpr = (ev: Event) => {
+      const ce = ev as CustomEvent<{ blink?: number; mouth?: number; ts?: number }>;
+      vrmExprRef.current = ce.detail || null;
+    };
+    window.addEventListener(
+      "motioncast:expr-source",
+      onExprSrc as EventListener,
+    );
+    window.addEventListener(
+      "motioncast:vrm-expression",
+      onVrmExpr as EventListener,
+    );
+
     const onCfg = (ev: Event) => {
       const ce = ev as CustomEvent<Partial<typeof cfgRef.current>>;
       const cur = cfgRef.current;
@@ -220,12 +244,21 @@ export function OscBridge() {
       const pose = latestRef.current;
       if (pose) {
         // send best-effort; ignore errors when not on tauri context
+        const src = exprSourceRef.current;
+        const blink =
+          src === "vrm"
+            ? (vrmExprRef.current?.blink ?? pose.blink ?? 0)
+            : (pose.blink ?? 0);
+        const mouth =
+          src === "vrm"
+            ? (vrmExprRef.current?.mouth ?? pose.mouth ?? 0)
+            : (pose.mouth ?? 0);
         const payload = {
           yaw: pose.yaw ?? 0,
           pitch: pose.pitch ?? 0,
           roll: pose.roll ?? 0,
-          blink: pose.blink ?? 0,
-          mouth: pose.mouth ?? 0,
+          blink,
+          mouth,
         };
         invoke("osc_update", { pose: payload }).catch(() => {});
       }
@@ -426,6 +459,14 @@ export function OscBridge() {
       window.removeEventListener(
         "motioncast:upper-body-3d",
         onUpper3d as EventListener,
+      );
+      window.removeEventListener(
+        "motioncast:expr-source",
+        onExprSrc as EventListener,
+      );
+      window.removeEventListener(
+        "motioncast:vrm-expression",
+        onVrmExpr as EventListener,
       );
       window.removeEventListener(
         "motioncast:stabilizer-params",

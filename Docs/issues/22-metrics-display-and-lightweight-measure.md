@@ -46,3 +46,16 @@ issue: 3
   - `app/src/features/osc/OscBridge.tsx`
   - `app/src/App.tsx`
   - 依存追加なし、既存挙動への回帰影響なし
+
+## 追加実装（表情ソースの選択・描画分離）
+- 表情送信ソースの選択を追加（既定: raw / オプション: VRM同期）
+  - UI: `OscTest` にセレクト追加（localStorage: `osc.exprSource`）
+  - VRM同期時は `VrmViewer` が適用した表情値を `motioncast:vrm-expression` で公開
+  - Bridge は `motioncast:expr-source` / `motioncast:vrm-expression` を購読し送信用値を選択
+- ビューの描画と送信用リターゲット計算を分離
+  - `VrmViewer` に「描画停止」「送信計算停止」を個別トグル化
+  - 描画停止でも送信用のワールド行列更新とQuat算出は継続可能
+- 関連ファイル:
+  - `app/src/features/osc/OscTest.tsx`（UI追加）
+  - `app/src/features/vrm/VrmViewer.tsx`（表情値公開・描画/計算分離）
+  - `app/src/features/osc/OscBridge.tsx`（表情ソース選択）

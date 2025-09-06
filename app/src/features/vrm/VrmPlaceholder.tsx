@@ -19,7 +19,7 @@ export function VrmPlaceholder() {
   });
 
   const onPick = () => inputRef.current?.click();
-  const onChange: React.ChangeEventHandler<HTMLInputElement> = (e) => {
+  const onChange: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
     const f = e.target.files?.[0];
     if (!f) return;
     setFileName(f.name);
@@ -30,12 +30,28 @@ export function VrmPlaceholder() {
     } catch {
       // ignore
     }
+    // 互換目的: URL と ArrayBuffer の両方を通知（環境により blob: URL が読めない場合に備える）
+    let url: string | undefined;
     try {
-      const url = URL.createObjectURL(f);
-      // Viewer 側が読み込み後に revoke する前提
+      url = URL.createObjectURL(f);
+    } catch {
+      url = undefined;
+    }
+    let buffer: ArrayBuffer | undefined;
+    try {
+      buffer = await f.arrayBuffer();
+    } catch {
+      buffer = undefined;
+    }
+    try {
       window.dispatchEvent(
         new CustomEvent("motioncast:vrm-select", {
-          detail: { url, name: f.name, size: f.size },
+          detail: { url, buffer, name: f.name, size: f.size, type: f.type },
+        }),
+      );
+      document.dispatchEvent(
+        new CustomEvent("motioncast:vrm-select", {
+          detail: { url, buffer, name: f.name, size: f.size, type: f.type },
         }),
       );
     } catch {
@@ -54,6 +70,7 @@ export function VrmPlaceholder() {
     if (inputRef.current) inputRef.current.value = "";
     try {
       window.dispatchEvent(new CustomEvent("motioncast:vrm-reset"));
+      document.dispatchEvent(new CustomEvent("motioncast:vrm-reset"));
     } catch {
       // ignore
     }
@@ -79,7 +96,7 @@ export function VrmPlaceholder() {
       <div className="vrm-info" aria-live="polite">
         VRM: <b>{fileName}</b>
         {fileSize != null ? `（${Math.round(fileSize / 1024)}KB）` : ""}
-        <span className="vrm-note">（プレースホルダ。読み込みは未実装）</span>
+        <span className="vrm-note">ファイル選択でビューアに表示</span>
       </div>
     </div>
   );

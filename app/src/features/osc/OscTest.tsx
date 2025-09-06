@@ -41,6 +41,14 @@ export function OscTest() {
       return "med";
     }
   });
+  // 表情送信ソース: raw | vrm
+  const [exprSource, setExprSource] = useState<string>(() => {
+    try {
+      return localStorage.getItem("osc.exprSource") || "raw";
+    } catch {
+      return "raw";
+    }
+  });
   // Stabilizer UI state (persisted)
   const [stabEnabled, setStabEnabled] = useState<boolean>(() => {
     try {
@@ -165,6 +173,18 @@ export function OscTest() {
     wristMax,
   ]);
 
+  // 初期化時と変更時に表情ソースをBridgeへ通知
+  useEffect(() => {
+    try {
+      window.dispatchEvent(
+        new CustomEvent("motioncast:expr-source", { detail: exprSource }),
+      );
+      localStorage.setItem("osc.exprSource", exprSource);
+    } catch {
+      /* noop */
+    }
+  }, [exprSource]);
+
   useEffect(() => {
     return () => {
       if (sending) void invoke("osc_stop");
@@ -262,6 +282,14 @@ export function OscTest() {
           <option value="cluster">cluster-basic</option>
           <option value="mc-upper">mc-upper (head+face+upper-body quat)</option>
           <option value="vmc">vmc (/VMC/Ext/Bone/Pos subset)</option>
+        </select>
+        <select
+          value={exprSource}
+          onChange={(e) => setExprSource(e.target.value)}
+          aria-label="表情ソース"
+        >
+          <option value="raw">表情: raw</option>
+          <option value="vrm">表情: VRM同期</option>
         </select>
         <select
           value={smooth}
