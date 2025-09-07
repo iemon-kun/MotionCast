@@ -263,6 +263,7 @@ export function VrmViewer() {
                       node: restRef.current.bones.lShoulder.node,
                       child: restRef.current.bones.lShoulder.child,
                       qWorld0: restRef.current.bones.lShoulder.qWorld0.clone(),
+                      qLocal0: restRef.current.bones.lShoulder.qLocal0.clone(),
                       dirWorld0:
                         restRef.current.bones.lShoulder.dirWorld0.clone(),
                     }
@@ -272,6 +273,7 @@ export function VrmViewer() {
                       node: restRef.current.bones.rShoulder.node,
                       child: restRef.current.bones.rShoulder.child,
                       qWorld0: restRef.current.bones.rShoulder.qWorld0.clone(),
+                      qLocal0: restRef.current.bones.rShoulder.qLocal0.clone(),
                       dirWorld0:
                         restRef.current.bones.rShoulder.dirWorld0.clone(),
                     }
@@ -281,6 +283,7 @@ export function VrmViewer() {
                       node: restRef.current.bones.lUpperArm.node,
                       child: restRef.current.bones.lUpperArm.child,
                       qWorld0: restRef.current.bones.lUpperArm.qWorld0.clone(),
+                      qLocal0: restRef.current.bones.lUpperArm.qLocal0.clone(),
                       dirWorld0:
                         restRef.current.bones.lUpperArm.dirWorld0.clone(),
                     }
@@ -290,6 +293,7 @@ export function VrmViewer() {
                       node: restRef.current.bones.rUpperArm.node,
                       child: restRef.current.bones.rUpperArm.child,
                       qWorld0: restRef.current.bones.rUpperArm.qWorld0.clone(),
+                      qLocal0: restRef.current.bones.rUpperArm.qLocal0.clone(),
                       dirWorld0:
                         restRef.current.bones.rUpperArm.dirWorld0.clone(),
                     }
@@ -299,6 +303,7 @@ export function VrmViewer() {
                       node: restRef.current.bones.lLowerArm.node,
                       child: restRef.current.bones.lLowerArm.child,
                       qWorld0: restRef.current.bones.lLowerArm.qWorld0.clone(),
+                      qLocal0: restRef.current.bones.lLowerArm.qLocal0.clone(),
                       dirWorld0:
                         restRef.current.bones.lLowerArm.dirWorld0.clone(),
                     }
@@ -308,6 +313,7 @@ export function VrmViewer() {
                       node: restRef.current.bones.rLowerArm.node,
                       child: restRef.current.bones.rLowerArm.child,
                       qWorld0: restRef.current.bones.rLowerArm.qWorld0.clone(),
+                      qLocal0: restRef.current.bones.rLowerArm.qLocal0.clone(),
                       dirWorld0:
                         restRef.current.bones.rLowerArm.dirWorld0.clone(),
                     }
@@ -316,6 +322,14 @@ export function VrmViewer() {
                   ? {
                       node: restRef.current.bones.chest.node,
                       qWorld0: restRef.current.bones.chest.qWorld0.clone(),
+                      qLocal0: restRef.current.bones.chest.qLocal0.clone(),
+                    }
+                  : undefined,
+                neck: restRef.current.bones.neck
+                  ? {
+                      node: restRef.current.bones.neck.node,
+                      qWorld0: restRef.current.bones.neck.qWorld0.clone(),
+                      qLocal0: restRef.current.bones.neck.qLocal0.clone(),
                     }
                   : undefined,
               },
@@ -469,7 +483,7 @@ export function VrmViewer() {
                 { min: 0, max: 2.1 },
               );
             } else {
-              slerpRest(bones.lUpperArm?.node, bones.lUpperArm?.qWorld0, 0.2);
+              slerpRest(bones.lUpperArm?.node, bones.lUpperArm?.qLocal0, 0.2);
             }
             if (bones.rUpperArm && u3.rShoulder && u3.rElbow) {
               applyBone(
@@ -485,7 +499,7 @@ export function VrmViewer() {
                 { min: 0, max: 2.1 },
               );
             } else {
-              slerpRest(bones.rUpperArm?.node, bones.rUpperArm?.qWorld0, 0.2);
+              slerpRest(bones.rUpperArm?.node, bones.rUpperArm?.qLocal0, 0.2);
             }
             if (bones.lLowerArm && u3.lElbow && u3.lWrist) {
               applyBone(
@@ -497,7 +511,7 @@ export function VrmViewer() {
                 { min: 0, max: 2.62 },
               );
             } else {
-              slerpRest(bones.lLowerArm?.node, bones.lLowerArm?.qWorld0, 0.25);
+              slerpRest(bones.lLowerArm?.node, bones.lLowerArm?.qLocal0, 0.25);
             }
             if (bones.rLowerArm && u3.rElbow && u3.rWrist) {
               applyBone(
@@ -509,7 +523,7 @@ export function VrmViewer() {
                 { min: 0, max: 2.62 },
               );
             } else {
-              slerpRest(bones.rLowerArm?.node, bones.rLowerArm?.qWorld0, 0.25);
+              slerpRest(bones.rLowerArm?.node, bones.rLowerArm?.qLocal0, 0.25);
             }
 
             // Chest: align trunk gently (lock yaw; apply pitch/roll only)
@@ -570,7 +584,7 @@ export function VrmViewer() {
               VRMHumanBoneName.RightLowerArm,
             );
             const slerpToRest = (
-              node?: THREE.Object3D,
+              node?: THREE.Object3D | null,
               qLocal0?: THREE.Quaternion,
               rate = 0.2,
             ) => {
@@ -594,7 +608,7 @@ export function VrmViewer() {
               const dy = u2!.lShoulder.y - u2!.rShoulder.y;
               chestNode.rotation.z = clamp(dy * 1.5, 0.6);
             } else {
-              slerpToRest(chestNode, calib?.bones.chest?.qLocal0, 0.2);
+              slerpToRest(chestNode ?? undefined, calib?.bones.chest?.qLocal0, 0.2);
             }
             if (lUpperArm && u2!.lShoulder && u2!.lElbow) {
               const dx = u2!.lElbow.x - u2!.lShoulder.x;
@@ -604,7 +618,7 @@ export function VrmViewer() {
                 1.0,
               );
             } else {
-              slerpToRest(lUpperArm, calib?.bones.lUpperArm?.qLocal0, 0.2);
+              slerpToRest(lUpperArm ?? undefined, calib?.bones.lUpperArm?.qLocal0, 0.2);
             }
             if (rUpperArm && u2!.rShoulder && u2!.rElbow) {
               const dx = u2!.rElbow.x - u2!.rShoulder.x;
@@ -614,7 +628,7 @@ export function VrmViewer() {
                 1.0,
               );
             } else {
-              slerpToRest(rUpperArm, calib?.bones.rUpperArm?.qLocal0, 0.2);
+              slerpToRest(rUpperArm ?? undefined, calib?.bones.rUpperArm?.qLocal0, 0.2);
             }
             if (lLowerArm && u2!.lShoulder && u2!.lElbow && u2!.lWrist) {
               const ax = u2!.lElbow.x - u2!.lShoulder.x;
@@ -623,7 +637,7 @@ export function VrmViewer() {
               const by = u2!.lWrist.y - u2!.lElbow.y;
               lLowerArm.rotation.x = clamp(-angleBetween(ax, ay, bx, by), 1.2);
             } else {
-              slerpToRest(lLowerArm, calib?.bones.lLowerArm?.qLocal0, 0.25);
+              slerpToRest(lLowerArm ?? undefined, calib?.bones.lLowerArm?.qLocal0, 0.25);
             }
             if (rLowerArm && u2!.rShoulder && u2!.rElbow && u2!.rWrist) {
               const ax = u2!.rElbow.x - u2!.rShoulder.x;
@@ -632,7 +646,7 @@ export function VrmViewer() {
               const by = u2!.rWrist.y - u2!.rElbow.y;
               rLowerArm.rotation.x = clamp(-angleBetween(ax, ay, bx, by), 1.2);
             } else {
-              slerpToRest(rLowerArm, calib?.bones.rLowerArm?.qLocal0, 0.25);
+              slerpToRest(rLowerArm ?? undefined, calib?.bones.rLowerArm?.qLocal0, 0.25);
             }
           } else if (calib && vrm2) {
             // Relax towards rest pose when no recent data
