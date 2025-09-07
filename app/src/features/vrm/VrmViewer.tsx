@@ -2,7 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { VRM, VRMLoaderPlugin, VRMUtils } from "@pixiv/three-vrm";
-import { VRMHumanBoneName, VRMExpressionPresetName } from "@pixiv/three-vrm-core";
+import {
+  VRMHumanBoneName,
+  VRMExpressionPresetName,
+} from "@pixiv/three-vrm-core";
 
 export function VrmViewer() {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -53,8 +56,14 @@ export function VrmViewer() {
   // 3D上半身リターゲット用の最新値とキャリブレーション
   type P3 = { x: number; y: number; z: number };
   type Upper3D = {
-    lShoulder?: P3; rShoulder?: P3; lElbow?: P3; rElbow?: P3;
-    lWrist?: P3; rWrist?: P3; lHip?: P3; rHip?: P3;
+    lShoulder?: P3;
+    rShoulder?: P3;
+    lElbow?: P3;
+    rElbow?: P3;
+    lWrist?: P3;
+    rWrist?: P3;
+    lHip?: P3;
+    rHip?: P3;
   };
   const upper3dRef = useRef<Upper3D | null>(null);
   const last3DAtRef = useRef<number>(0);
@@ -63,23 +72,70 @@ export function VrmViewer() {
   // 2D上半身（フォールバック）
   type P2 = { x: number; y: number };
   type Upper2D = {
-    lShoulder?: P2; rShoulder?: P2;
-    lElbow?: P2; rElbow?: P2;
-    lWrist?: P2; rWrist?: P2;
+    lShoulder?: P2;
+    rShoulder?: P2;
+    lElbow?: P2;
+    rElbow?: P2;
+    lWrist?: P2;
+    rWrist?: P2;
   };
   const upper2dRef = useRef<Upper2D | null>(null);
   const last2DAtRef = useRef<number>(0);
   const calibRef = useRef<null | {
     trunkQuatVRM: THREE.Quaternion;
     bones: {
-      lShoulder?: { node: THREE.Object3D; child?: THREE.Object3D; qWorld0: THREE.Quaternion; qLocal0: THREE.Quaternion; dirWorld0: THREE.Vector3 };
-      rShoulder?: { node: THREE.Object3D; child?: THREE.Object3D; qWorld0: THREE.Quaternion; qLocal0: THREE.Quaternion; dirWorld0: THREE.Vector3 };
-      lUpperArm?: { node: THREE.Object3D; child?: THREE.Object3D; qWorld0: THREE.Quaternion; qLocal0: THREE.Quaternion; dirWorld0: THREE.Vector3 };
-      rUpperArm?: { node: THREE.Object3D; child?: THREE.Object3D; qWorld0: THREE.Quaternion; qLocal0: THREE.Quaternion; dirWorld0: THREE.Vector3 };
-      lLowerArm?: { node: THREE.Object3D; child?: THREE.Object3D; qWorld0: THREE.Quaternion; qLocal0: THREE.Quaternion; dirWorld0: THREE.Vector3 };
-      rLowerArm?: { node: THREE.Object3D; child?: THREE.Object3D; qWorld0: THREE.Quaternion; qLocal0: THREE.Quaternion; dirWorld0: THREE.Vector3 };
-      chest?: { node: THREE.Object3D; qWorld0: THREE.Quaternion; qLocal0: THREE.Quaternion };
-      neck?: { node: THREE.Object3D; qWorld0: THREE.Quaternion; qLocal0: THREE.Quaternion };
+      lShoulder?: {
+        node: THREE.Object3D;
+        child?: THREE.Object3D;
+        qWorld0: THREE.Quaternion;
+        qLocal0: THREE.Quaternion;
+        dirWorld0: THREE.Vector3;
+      };
+      rShoulder?: {
+        node: THREE.Object3D;
+        child?: THREE.Object3D;
+        qWorld0: THREE.Quaternion;
+        qLocal0: THREE.Quaternion;
+        dirWorld0: THREE.Vector3;
+      };
+      lUpperArm?: {
+        node: THREE.Object3D;
+        child?: THREE.Object3D;
+        qWorld0: THREE.Quaternion;
+        qLocal0: THREE.Quaternion;
+        dirWorld0: THREE.Vector3;
+      };
+      rUpperArm?: {
+        node: THREE.Object3D;
+        child?: THREE.Object3D;
+        qWorld0: THREE.Quaternion;
+        qLocal0: THREE.Quaternion;
+        dirWorld0: THREE.Vector3;
+      };
+      lLowerArm?: {
+        node: THREE.Object3D;
+        child?: THREE.Object3D;
+        qWorld0: THREE.Quaternion;
+        qLocal0: THREE.Quaternion;
+        dirWorld0: THREE.Vector3;
+      };
+      rLowerArm?: {
+        node: THREE.Object3D;
+        child?: THREE.Object3D;
+        qWorld0: THREE.Quaternion;
+        qLocal0: THREE.Quaternion;
+        dirWorld0: THREE.Vector3;
+      };
+      chest?: {
+        node: THREE.Object3D;
+        qWorld0: THREE.Quaternion;
+        qLocal0: THREE.Quaternion;
+      };
+      neck?: {
+        node: THREE.Object3D;
+        qWorld0: THREE.Quaternion;
+        qLocal0: THREE.Quaternion;
+      };
     };
   }>(null);
   const restRef = useRef<typeof calibRef.current>(null);
@@ -142,7 +198,11 @@ export function VrmViewer() {
     };
 
     el.appendChild(renderer.domElement);
-    try { el.setAttribute("data-has-canvas", "true"); } catch { void 0; }
+    try {
+      el.setAttribute("data-has-canvas", "true");
+    } catch {
+      void 0;
+    }
 
     scene.add(new THREE.AmbientLight(0xffffff, 0.4));
     const dir = new THREE.DirectionalLight(0xffffff, 1);
@@ -179,9 +239,12 @@ export function VrmViewer() {
     const animate = () => {
       raf = requestAnimationFrame(animate);
       const dt = clock.getDelta();
-      const v = vrmRef.current as unknown as { update?: (dt: number) => void } | null;
+      const v = vrmRef.current as unknown as {
+        update?: (dt: number) => void;
+      } | null;
       v?.update?.(dt);
-      if (runningRef.current && cubeRef.current) cubeRef.current.rotation.y += 0.01;
+      if (runningRef.current && cubeRef.current)
+        cubeRef.current.rotation.y += 0.01;
       // Optional: apply latest 3D mapping each frame if available
       try {
         const u3 = upper3dRef.current;
@@ -195,13 +258,66 @@ export function VrmViewer() {
             calibRef.current = {
               trunkQuatVRM: restRef.current.trunkQuatVRM.clone(),
               bones: {
-                lShoulder: restRef.current.bones.lShoulder ? { node: restRef.current.bones.lShoulder.node, child: restRef.current.bones.lShoulder.child, qWorld0: restRef.current.bones.lShoulder.qWorld0.clone(), dirWorld0: restRef.current.bones.lShoulder.dirWorld0.clone() } : undefined,
-                rShoulder: restRef.current.bones.rShoulder ? { node: restRef.current.bones.rShoulder.node, child: restRef.current.bones.rShoulder.child, qWorld0: restRef.current.bones.rShoulder.qWorld0.clone(), dirWorld0: restRef.current.bones.rShoulder.dirWorld0.clone() } : undefined,
-                lUpperArm: restRef.current.bones.lUpperArm ? { node: restRef.current.bones.lUpperArm.node, child: restRef.current.bones.lUpperArm.child, qWorld0: restRef.current.bones.lUpperArm.qWorld0.clone(), dirWorld0: restRef.current.bones.lUpperArm.dirWorld0.clone() } : undefined,
-                rUpperArm: restRef.current.bones.rUpperArm ? { node: restRef.current.bones.rUpperArm.node, child: restRef.current.bones.rUpperArm.child, qWorld0: restRef.current.bones.rUpperArm.qWorld0.clone(), dirWorld0: restRef.current.bones.rUpperArm.dirWorld0.clone() } : undefined,
-                lLowerArm: restRef.current.bones.lLowerArm ? { node: restRef.current.bones.lLowerArm.node, child: restRef.current.bones.lLowerArm.child, qWorld0: restRef.current.bones.lLowerArm.qWorld0.clone(), dirWorld0: restRef.current.bones.lLowerArm.dirWorld0.clone() } : undefined,
-                rLowerArm: restRef.current.bones.rLowerArm ? { node: restRef.current.bones.rLowerArm.node, child: restRef.current.bones.rLowerArm.child, qWorld0: restRef.current.bones.rLowerArm.qWorld0.clone(), dirWorld0: restRef.current.bones.rLowerArm.dirWorld0.clone() } : undefined,
-                chest: restRef.current.bones.chest ? { node: restRef.current.bones.chest.node, qWorld0: restRef.current.bones.chest.qWorld0.clone() } : undefined,
+                lShoulder: restRef.current.bones.lShoulder
+                  ? {
+                      node: restRef.current.bones.lShoulder.node,
+                      child: restRef.current.bones.lShoulder.child,
+                      qWorld0: restRef.current.bones.lShoulder.qWorld0.clone(),
+                      dirWorld0:
+                        restRef.current.bones.lShoulder.dirWorld0.clone(),
+                    }
+                  : undefined,
+                rShoulder: restRef.current.bones.rShoulder
+                  ? {
+                      node: restRef.current.bones.rShoulder.node,
+                      child: restRef.current.bones.rShoulder.child,
+                      qWorld0: restRef.current.bones.rShoulder.qWorld0.clone(),
+                      dirWorld0:
+                        restRef.current.bones.rShoulder.dirWorld0.clone(),
+                    }
+                  : undefined,
+                lUpperArm: restRef.current.bones.lUpperArm
+                  ? {
+                      node: restRef.current.bones.lUpperArm.node,
+                      child: restRef.current.bones.lUpperArm.child,
+                      qWorld0: restRef.current.bones.lUpperArm.qWorld0.clone(),
+                      dirWorld0:
+                        restRef.current.bones.lUpperArm.dirWorld0.clone(),
+                    }
+                  : undefined,
+                rUpperArm: restRef.current.bones.rUpperArm
+                  ? {
+                      node: restRef.current.bones.rUpperArm.node,
+                      child: restRef.current.bones.rUpperArm.child,
+                      qWorld0: restRef.current.bones.rUpperArm.qWorld0.clone(),
+                      dirWorld0:
+                        restRef.current.bones.rUpperArm.dirWorld0.clone(),
+                    }
+                  : undefined,
+                lLowerArm: restRef.current.bones.lLowerArm
+                  ? {
+                      node: restRef.current.bones.lLowerArm.node,
+                      child: restRef.current.bones.lLowerArm.child,
+                      qWorld0: restRef.current.bones.lLowerArm.qWorld0.clone(),
+                      dirWorld0:
+                        restRef.current.bones.lLowerArm.dirWorld0.clone(),
+                    }
+                  : undefined,
+                rLowerArm: restRef.current.bones.rLowerArm
+                  ? {
+                      node: restRef.current.bones.rLowerArm.node,
+                      child: restRef.current.bones.rLowerArm.child,
+                      qWorld0: restRef.current.bones.rLowerArm.qWorld0.clone(),
+                      dirWorld0:
+                        restRef.current.bones.rLowerArm.dirWorld0.clone(),
+                    }
+                  : undefined,
+                chest: restRef.current.bones.chest
+                  ? {
+                      node: restRef.current.bones.chest.node,
+                      qWorld0: restRef.current.bones.chest.qWorld0.clone(),
+                    }
+                  : undefined,
               },
             };
             recalibHoldRef.current = 8; // few frames to relax-to-rest
@@ -209,19 +325,48 @@ export function VrmViewer() {
           const calib = calibRef.current;
           if (calib && u3.lShoulder && u3.rShoulder && (u3.lHip || u3.rHip)) {
             // Build trunk basis from MP
-            const pLs = new THREE.Vector3(u3.lShoulder.x, u3.lShoulder.y, u3.lShoulder.z);
-            const pRs = new THREE.Vector3(u3.rShoulder.x, u3.rShoulder.y, u3.rShoulder.z);
-            const pLc = u3.lHip ? new THREE.Vector3(u3.lHip.x, u3.lHip.y, u3.lHip.z) : new THREE.Vector3(u3.rHip!.x, u3.rHip!.y, u3.rHip!.z);
-            const pRc = u3.rHip ? new THREE.Vector3(u3.rHip.x, u3.rHip.y, u3.rHip.z) : new THREE.Vector3(u3.lHip!.x, u3.lHip!.y, u3.lHip!.z);
-            const pHc = new THREE.Vector3().addVectors(pLc, pRc).multiplyScalar(0.5);
-            const x_m_raw = new THREE.Vector3().subVectors(pRs, pLs).normalize();
-            const y_m_raw = new THREE.Vector3().subVectors(new THREE.Vector3().addVectors(pLs, pRs).multiplyScalar(0.5), pHc).normalize();
-            const z_m_raw = new THREE.Vector3().crossVectors(x_m_raw, y_m_raw).normalize();
+            const pLs = new THREE.Vector3(
+              u3.lShoulder.x,
+              u3.lShoulder.y,
+              u3.lShoulder.z,
+            );
+            const pRs = new THREE.Vector3(
+              u3.rShoulder.x,
+              u3.rShoulder.y,
+              u3.rShoulder.z,
+            );
+            const pLc = u3.lHip
+              ? new THREE.Vector3(u3.lHip.x, u3.lHip.y, u3.lHip.z)
+              : new THREE.Vector3(u3.rHip!.x, u3.rHip!.y, u3.rHip!.z);
+            const pRc = u3.rHip
+              ? new THREE.Vector3(u3.rHip.x, u3.rHip.y, u3.rHip.z)
+              : new THREE.Vector3(u3.lHip!.x, u3.lHip!.y, u3.lHip!.z);
+            const pHc = new THREE.Vector3()
+              .addVectors(pLc, pRc)
+              .multiplyScalar(0.5);
+            const x_m_raw = new THREE.Vector3()
+              .subVectors(pRs, pLs)
+              .normalize();
+            const y_m_raw = new THREE.Vector3()
+              .subVectors(
+                new THREE.Vector3().addVectors(pLs, pRs).multiplyScalar(0.5),
+                pHc,
+              )
+              .normalize();
+            const z_m_raw = new THREE.Vector3()
+              .crossVectors(x_m_raw, y_m_raw)
+              .normalize();
             y_m_raw.crossVectors(z_m_raw, x_m_raw).normalize();
             // Auto sign alignment vs VRM trunk basis
-            const x_v = new THREE.Vector3(1, 0, 0).applyQuaternion(calib.trunkQuatVRM).normalize();
-            const y_v = new THREE.Vector3(0, 1, 0).applyQuaternion(calib.trunkQuatVRM).normalize();
-            const z_v = new THREE.Vector3(0, 0, 1).applyQuaternion(calib.trunkQuatVRM).normalize();
+            const x_v = new THREE.Vector3(1, 0, 0)
+              .applyQuaternion(calib.trunkQuatVRM)
+              .normalize();
+            const y_v = new THREE.Vector3(0, 1, 0)
+              .applyQuaternion(calib.trunkQuatVRM)
+              .normalize();
+            const z_v = new THREE.Vector3(0, 0, 1)
+              .applyQuaternion(calib.trunkQuatVRM)
+              .normalize();
             const sx = x_v.dot(x_m_raw) < 0 ? -1 : 1;
             const sy = y_v.dot(y_m_raw) < 0 ? -1 : 1;
             const x_m = x_m_raw.clone().multiplyScalar(sx);
@@ -235,17 +380,22 @@ export function VrmViewer() {
             }
             const m_m = new THREE.Matrix4().makeBasis(x_m, y_m, z_m);
             const q_m = new THREE.Quaternion().setFromRotationMatrix(m_m);
-            const q_map = calib.trunkQuatVRM.clone().multiply(q_m.clone().invert()); // MP -> VRM world
+            const q_map = calib.trunkQuatVRM
+              .clone()
+              .multiply(q_m.clone().invert()); // MP -> VRM world
 
             const calcAxisAngle = (a: THREE.Vector3, b: THREE.Vector3) => {
               const an = a.clone().normalize();
               const bn = b.clone().normalize();
               const dot = Math.max(-1, Math.min(1, an.dot(bn)));
-              if (dot > 0.9995) return { axis: new THREE.Vector3(1, 0, 0), angle: 0 };
+              if (dot > 0.9995)
+                return { axis: new THREE.Vector3(1, 0, 0), angle: 0 };
               if (dot < -0.9995) {
                 const axis = new THREE.Vector3(1, 0, 0);
                 if (Math.abs(an.dot(axis)) > 0.9) axis.set(0, 1, 0);
-                const ortho = new THREE.Vector3().crossVectors(an, axis).normalize();
+                const ortho = new THREE.Vector3()
+                  .crossVectors(an, axis)
+                  .normalize();
                 return { axis: ortho, angle: Math.PI };
               }
               const axis = new THREE.Vector3().crossVectors(an, bn).normalize();
@@ -254,30 +404,47 @@ export function VrmViewer() {
             };
 
             const applyBone = (
-              bone: { node: THREE.Object3D; qWorld0: THREE.Quaternion; dirWorld0: THREE.Vector3 },
+              bone: {
+                node: THREE.Object3D;
+                qWorld0: THREE.Quaternion;
+                dirWorld0: THREE.Vector3;
+              },
               parent: THREE.Object3D | null,
               targetA: THREE.Vector3,
               targetB: THREE.Vector3,
               smooth = 0.35,
-              clamp?: { min: number; max: number }
+              clamp?: { min: number; max: number },
             ) => {
               const dir_m = new THREE.Vector3().subVectors(targetB, targetA);
               if (dir_m.lengthSq() < 1e-6) return;
               const dir_v = dir_m.applyQuaternion(q_map);
               const { axis, angle } = calcAxisAngle(bone.dirWorld0, dir_v);
-              const ang = clamp ? Math.max(clamp.min, Math.min(clamp.max, angle)) : angle;
-              const q_align = new THREE.Quaternion().setFromAxisAngle(axis, ang);
+              const ang = clamp
+                ? Math.max(clamp.min, Math.min(clamp.max, angle))
+                : angle;
+              const q_align = new THREE.Quaternion().setFromAxisAngle(
+                axis,
+                ang,
+              );
               const q_world_target = bone.qWorld0.clone().premultiply(q_align);
               const q_parent_world = new THREE.Quaternion();
               parent?.getWorldQuaternion(q_parent_world);
-              const q_local_target = q_parent_world.clone().invert().multiply(q_world_target);
+              const q_local_target = q_parent_world
+                .clone()
+                .invert()
+                .multiply(q_world_target);
               bone.node.quaternion.slerp(q_local_target, smooth);
             };
 
             // const humanoid = vrm.humanoid; // unused
-            const parentOf = (n?: THREE.Object3D | null) => (n ? (n.parent as THREE.Object3D | null) : null);
+            const parentOf = (n?: THREE.Object3D | null) =>
+              n ? (n.parent as THREE.Object3D | null) : null;
             const bones = calib.bones;
-            const slerpRest = (node?: THREE.Object3D, qLocal0?: THREE.Quaternion, rate = 0.2) => {
+            const slerpRest = (
+              node?: THREE.Object3D,
+              qLocal0?: THREE.Quaternion,
+              rate = 0.2,
+            ) => {
               if (!node || !qLocal0) return;
               node.quaternion.slerp(qLocal0, rate);
             };
@@ -292,7 +459,11 @@ export function VrmViewer() {
               applyBone(
                 bones.lUpperArm,
                 parentOf(bones.lUpperArm.node),
-                new THREE.Vector3(u3.lShoulder.x, u3.lShoulder.y, u3.lShoulder.z),
+                new THREE.Vector3(
+                  u3.lShoulder.x,
+                  u3.lShoulder.y,
+                  u3.lShoulder.z,
+                ),
                 new THREE.Vector3(u3.lElbow.x, u3.lElbow.y, u3.lElbow.z),
                 0.35,
                 { min: 0, max: 2.1 },
@@ -304,7 +475,11 @@ export function VrmViewer() {
               applyBone(
                 bones.rUpperArm,
                 parentOf(bones.rUpperArm.node),
-                new THREE.Vector3(u3.rShoulder.x, u3.rShoulder.y, u3.rShoulder.z),
+                new THREE.Vector3(
+                  u3.rShoulder.x,
+                  u3.rShoulder.y,
+                  u3.rShoulder.z,
+                ),
                 new THREE.Vector3(u3.rElbow.x, u3.rElbow.y, u3.rElbow.z),
                 0.35,
                 { min: 0, max: 2.1 },
@@ -358,7 +533,9 @@ export function VrmViewer() {
                 const q_adj = new THREE.Quaternion().setFromEuler(e);
                 q_noYaw = q_adj;
               }
-              const q_world_target = bones.chest.qWorld0.clone().multiply(q_noYaw);
+              const q_world_target = bones.chest.qWorld0
+                .clone()
+                .multiply(q_noYaw);
               const q_parent_world = new THREE.Quaternion();
               bones.chest.node.parent?.getWorldQuaternion(q_parent_world);
               const q_local_target = q_parent_world
@@ -380,16 +557,34 @@ export function VrmViewer() {
               humanoid.getNormalizedBoneNode(VRMHumanBoneName.UpperChest) ||
               humanoid.getNormalizedBoneNode(VRMHumanBoneName.Chest) ||
               humanoid.getNormalizedBoneNode(VRMHumanBoneName.Spine);
-            const lUpperArm = humanoid.getNormalizedBoneNode(VRMHumanBoneName.LeftUpperArm);
-            const rUpperArm = humanoid.getNormalizedBoneNode(VRMHumanBoneName.RightUpperArm);
-            const lLowerArm = humanoid.getNormalizedBoneNode(VRMHumanBoneName.LeftLowerArm);
-            const rLowerArm = humanoid.getNormalizedBoneNode(VRMHumanBoneName.RightLowerArm);
-            const slerpToRest = (node?: THREE.Object3D, qLocal0?: THREE.Quaternion, rate = 0.2) => {
+            const lUpperArm = humanoid.getNormalizedBoneNode(
+              VRMHumanBoneName.LeftUpperArm,
+            );
+            const rUpperArm = humanoid.getNormalizedBoneNode(
+              VRMHumanBoneName.RightUpperArm,
+            );
+            const lLowerArm = humanoid.getNormalizedBoneNode(
+              VRMHumanBoneName.LeftLowerArm,
+            );
+            const rLowerArm = humanoid.getNormalizedBoneNode(
+              VRMHumanBoneName.RightLowerArm,
+            );
+            const slerpToRest = (
+              node?: THREE.Object3D,
+              qLocal0?: THREE.Quaternion,
+              rate = 0.2,
+            ) => {
               if (!node || !qLocal0) return;
               node.quaternion.slerp(qLocal0, rate);
             };
-            const clamp = (x: number, a: number) => (x < -a ? -a : x > a ? a : x);
-            const angleBetween = (ax: number, ay: number, bx: number, by: number) => {
+            const clamp = (x: number, a: number) =>
+              x < -a ? -a : x > a ? a : x;
+            const angleBetween = (
+              ax: number,
+              ay: number,
+              bx: number,
+              by: number,
+            ) => {
               const al = Math.hypot(ax, ay) || 1;
               const bl = Math.hypot(bx, by) || 1;
               const dot = (ax / al) * (bx / bl) + (ay / al) * (by / bl);
@@ -404,14 +599,20 @@ export function VrmViewer() {
             if (lUpperArm && u2!.lShoulder && u2!.lElbow) {
               const dx = u2!.lElbow.x - u2!.lShoulder.x;
               const dy = u2!.lElbow.y - u2!.lShoulder.y;
-              lUpperArm.rotation.z = clamp(Math.PI / 2 - Math.atan2(dy, dx), 1.0);
+              lUpperArm.rotation.z = clamp(
+                Math.PI / 2 - Math.atan2(dy, dx),
+                1.0,
+              );
             } else {
               slerpToRest(lUpperArm, calib?.bones.lUpperArm?.qLocal0, 0.2);
             }
             if (rUpperArm && u2!.rShoulder && u2!.rElbow) {
               const dx = u2!.rElbow.x - u2!.rShoulder.x;
               const dy = u2!.rElbow.y - u2!.rShoulder.y;
-              rUpperArm.rotation.z = clamp(Math.PI / 2 - Math.atan2(dy, dx), 1.0);
+              rUpperArm.rotation.z = clamp(
+                Math.PI / 2 - Math.atan2(dy, dx),
+                1.0,
+              );
             } else {
               slerpToRest(rUpperArm, calib?.bones.rUpperArm?.qLocal0, 0.2);
             }
@@ -435,11 +636,18 @@ export function VrmViewer() {
             }
           } else if (calib && vrm2) {
             // Relax towards rest pose when no recent data
-            const slerp = (node?: THREE.Object3D, qWorld0?: THREE.Quaternion, rate = 0.15) => {
+            const slerp = (
+              node?: THREE.Object3D,
+              qWorld0?: THREE.Quaternion,
+              rate = 0.15,
+            ) => {
               if (!node || !qWorld0) return;
               const q_parent_world = new THREE.Quaternion();
               node.parent?.getWorldQuaternion(q_parent_world);
-              const q_local_target = q_parent_world.clone().invert().multiply(qWorld0);
+              const q_local_target = q_parent_world
+                .clone()
+                .invert()
+                .multiply(qWorld0);
               node.quaternion.slerp(q_local_target, rate);
             };
             const b = calib.bones;
@@ -450,7 +658,9 @@ export function VrmViewer() {
             slerp(b.rLowerArm?.node, b.rLowerArm?.qWorld0, 0.25);
           }
         }
-      } catch { void 0; }
+      } catch {
+        void 0;
+      }
       renderer.render(scene, camera);
     };
     animate();
@@ -473,85 +683,307 @@ export function VrmViewer() {
       scene.add(vrm.scene);
       vrmRef.current = vrm;
       setStatus("読み込み完了");
-      try { applySize(); renderer.render(scene, camera); } catch { void 0; }
+      try {
+        applySize();
+        renderer.render(scene, camera);
+      } catch {
+        void 0;
+      }
       try {
         fitCameraToObject(vrm.scene, 1.25);
         renderer.render(scene, camera);
-      } catch { void 0; }
+      } catch {
+        void 0;
+      }
       // 骨の初期ワールド姿勢とデフォルト方向をキャッシュ（リラックス基準）
       try {
         const humanoid = vrm.humanoid;
-        const get = (name: VRMHumanBoneName) => humanoid?.getNormalizedBoneNode(name) || undefined;
+        const get = (name: VRMHumanBoneName) =>
+          humanoid?.getNormalizedBoneNode(name) || undefined;
         const lShoulderNode = get(VRMHumanBoneName.LeftShoulder);
         const rShoulderNode = get(VRMHumanBoneName.RightShoulder);
         const hips = get(VRMHumanBoneName.Hips);
         if (lShoulderNode && rShoulderNode && hips) {
-          const pL = new THREE.Vector3(); const pR = new THREE.Vector3(); const pH = new THREE.Vector3();
-          lShoulderNode.getWorldPosition(pL); rShoulderNode.getWorldPosition(pR); hips.getWorldPosition(pH);
+          const pL = new THREE.Vector3();
+          const pR = new THREE.Vector3();
+          const pH = new THREE.Vector3();
+          lShoulderNode.getWorldPosition(pL);
+          rShoulderNode.getWorldPosition(pR);
+          hips.getWorldPosition(pH);
           const x = new THREE.Vector3().subVectors(pR, pL).normalize();
-          const y = new THREE.Vector3().subVectors(new THREE.Vector3().addVectors(pL, pR).multiplyScalar(0.5), pH).normalize();
+          const y = new THREE.Vector3()
+            .subVectors(
+              new THREE.Vector3().addVectors(pL, pR).multiplyScalar(0.5),
+              pH,
+            )
+            .normalize();
           const z = new THREE.Vector3().crossVectors(x, y).normalize();
           y.crossVectors(z, x).normalize();
           const m = new THREE.Matrix4().makeBasis(x, y, z);
           const trunkQuatVRM = new THREE.Quaternion().setFromRotationMatrix(m);
 
-        const neckNode = get(VRMHumanBoneName.Neck);
-        const lUpper = get(VRMHumanBoneName.LeftUpperArm);
-        const rUpper = get(VRMHumanBoneName.RightUpperArm);
-        const lLower = get(VRMHumanBoneName.LeftLowerArm);
-        const rLower = get(VRMHumanBoneName.RightLowerArm);
-        const lHand = get(VRMHumanBoneName.LeftHand);
-        const rHand = get(VRMHumanBoneName.RightHand);
-        const chest = get(VRMHumanBoneName.UpperChest) || get(VRMHumanBoneName.Chest) || get(VRMHumanBoneName.Spine);
-        const qWorld = (n?: THREE.Object3D) => { const q = new THREE.Quaternion(); n?.getWorldQuaternion(q); return q; };
-        const qLocal = (n?: THREE.Object3D) => (n ? n.quaternion.clone() : new THREE.Quaternion());
-        const dirOf = (a?: THREE.Object3D, b?: THREE.Object3D) => {
-          if (!a || !b) return new THREE.Vector3(0, 1, 0);
-          const pa = new THREE.Vector3(); const pb = new THREE.Vector3(); a.getWorldPosition(pa); b.getWorldPosition(pb);
-          return new THREE.Vector3().subVectors(pb, pa).normalize();
-        };
-        const rig = {
-          trunkQuatVRM,
-          bones: {
-            neck: neckNode ? { node: neckNode, qWorld0: qWorld(neckNode), qLocal0: qLocal(neckNode) } : undefined,
-            lShoulder: lShoulderNode && lUpper ? { node: lShoulderNode, child: lUpper, qWorld0: qWorld(lShoulderNode), qLocal0: qLocal(lShoulderNode), dirWorld0: dirOf(lShoulderNode, lUpper) } : undefined,
-            rShoulder: rShoulderNode && rUpper ? { node: rShoulderNode, child: rUpper, qWorld0: qWorld(rShoulderNode), qLocal0: qLocal(rShoulderNode), dirWorld0: dirOf(rShoulderNode, rUpper) } : undefined,
-            lUpperArm: lUpper && lLower ? { node: lUpper, child: lLower, qWorld0: qWorld(lUpper), qLocal0: qLocal(lUpper), dirWorld0: dirOf(lUpper, lLower) } : undefined,
-            rUpperArm: rUpper && rLower ? { node: rUpper, child: rLower, qWorld0: qWorld(rUpper), qLocal0: qLocal(rUpper), dirWorld0: dirOf(rUpper, rLower) } : undefined,
-            lLowerArm: lLower && lHand ? { node: lLower, child: lHand, qWorld0: qWorld(lLower), qLocal0: qLocal(lLower), dirWorld0: dirOf(lLower, lHand) } : undefined,
-            rLowerArm: rLower && rHand ? { node: rLower, child: rHand, qWorld0: qWorld(rLower), qLocal0: qLocal(rLower), dirWorld0: dirOf(rLower, rHand) } : undefined,
-            chest: chest ? { node: chest, qWorld0: qWorld(chest), qLocal0: qLocal(chest) } : undefined,
-          },
-        };
-        restRef.current = {
-          trunkQuatVRM: rig.trunkQuatVRM.clone(),
-          bones: {
-            neck: rig.bones.neck ? { node: rig.bones.neck.node, qWorld0: rig.bones.neck.qWorld0.clone(), qLocal0: rig.bones.neck.qLocal0.clone() } : undefined,
-            lShoulder: rig.bones.lShoulder ? { node: rig.bones.lShoulder.node, child: rig.bones.lShoulder.child, qWorld0: rig.bones.lShoulder.qWorld0.clone(), qLocal0: rig.bones.lShoulder.qLocal0.clone(), dirWorld0: rig.bones.lShoulder.dirWorld0.clone() } : undefined,
-            rShoulder: rig.bones.rShoulder ? { node: rig.bones.rShoulder.node, child: rig.bones.rShoulder.child, qWorld0: rig.bones.rShoulder.qWorld0.clone(), qLocal0: rig.bones.rShoulder.qLocal0.clone(), dirWorld0: rig.bones.rShoulder.dirWorld0.clone() } : undefined,
-            lUpperArm: rig.bones.lUpperArm ? { node: rig.bones.lUpperArm.node, child: rig.bones.lUpperArm.child, qWorld0: rig.bones.lUpperArm.qWorld0.clone(), qLocal0: rig.bones.lUpperArm.qLocal0.clone(), dirWorld0: rig.bones.lUpperArm.dirWorld0.clone() } : undefined,
-            rUpperArm: rig.bones.rUpperArm ? { node: rig.bones.rUpperArm.node, child: rig.bones.rUpperArm.child, qWorld0: rig.bones.rUpperArm.qWorld0.clone(), qLocal0: rig.bones.rUpperArm.qLocal0.clone(), dirWorld0: rig.bones.rUpperArm.dirWorld0.clone() } : undefined,
-            lLowerArm: rig.bones.lLowerArm ? { node: rig.bones.lLowerArm.node, child: rig.bones.lLowerArm.child, qWorld0: rig.bones.lLowerArm.qWorld0.clone(), qLocal0: rig.bones.lLowerArm.qLocal0.clone(), dirWorld0: rig.bones.lLowerArm.dirWorld0.clone() } : undefined,
-            rLowerArm: rig.bones.rLowerArm ? { node: rig.bones.rLowerArm.node, child: rig.bones.rLowerArm.child, qWorld0: rig.bones.rLowerArm.qWorld0.clone(), qLocal0: rig.bones.rLowerArm.qLocal0.clone(), dirWorld0: rig.bones.rLowerArm.dirWorld0.clone() } : undefined,
-            chest: rig.bones.chest ? { node: rig.bones.chest.node, qWorld0: rig.bones.chest.qWorld0.clone(), qLocal0: rig.bones.chest.qLocal0.clone() } : undefined,
-          },
-        };
-        // 初期キャリブレーションはrestのクローンを使用
-        calibRef.current = {
-          trunkQuatVRM: restRef.current!.trunkQuatVRM.clone(),
-          bones: {
-            neck: restRef.current!.bones.neck ? { node: restRef.current!.bones.neck.node, qWorld0: restRef.current!.bones.neck.qWorld0.clone(), qLocal0: restRef.current!.bones.neck.qLocal0.clone() } : undefined,
-            lShoulder: restRef.current!.bones.lShoulder ? { node: restRef.current!.bones.lShoulder.node, child: restRef.current!.bones.lShoulder.child, qWorld0: restRef.current!.bones.lShoulder.qWorld0.clone(), qLocal0: restRef.current!.bones.lShoulder.qLocal0.clone(), dirWorld0: restRef.current!.bones.lShoulder.dirWorld0.clone() } : undefined,
-            rShoulder: restRef.current!.bones.rShoulder ? { node: restRef.current!.bones.rShoulder.node, child: restRef.current!.bones.rShoulder.child, qWorld0: restRef.current!.bones.rShoulder.qWorld0.clone(), qLocal0: restRef.current!.bones.rShoulder.qLocal0.clone(), dirWorld0: restRef.current!.bones.rShoulder.dirWorld0.clone() } : undefined,
-            lUpperArm: restRef.current!.bones.lUpperArm ? { node: restRef.current!.bones.lUpperArm.node, child: restRef.current!.bones.lUpperArm.child, qWorld0: restRef.current!.bones.lUpperArm.qWorld0.clone(), qLocal0: restRef.current!.bones.lUpperArm.qLocal0.clone(), dirWorld0: restRef.current!.bones.lUpperArm.dirWorld0.clone() } : undefined,
-            rUpperArm: restRef.current!.bones.rUpperArm ? { node: restRef.current!.bones.rUpperArm.node, child: restRef.current!.bones.rUpperArm.child, qWorld0: restRef.current!.bones.rUpperArm.qWorld0.clone(), qLocal0: restRef.current!.bones.rUpperArm.qLocal0.clone(), dirWorld0: restRef.current!.bones.rUpperArm.dirWorld0.clone() } : undefined,
-            lLowerArm: restRef.current!.bones.lLowerArm ? { node: restRef.current!.bones.lLowerArm.node, child: restRef.current!.bones.lLowerArm.child, qWorld0: restRef.current!.bones.lLowerArm.qWorld0.clone(), qLocal0: restRef.current!.bones.lLowerArm.qLocal0.clone(), dirWorld0: restRef.current!.bones.lLowerArm.dirWorld0.clone() } : undefined,
-            rLowerArm: restRef.current!.bones.rLowerArm ? { node: restRef.current!.bones.rLowerArm.node, child: restRef.current!.bones.rLowerArm.child, qWorld0: restRef.current!.bones.rLowerArm.qWorld0.clone(), qLocal0: restRef.current!.bones.rLowerArm.qLocal0.clone(), dirWorld0: restRef.current!.bones.rLowerArm.dirWorld0.clone() } : undefined,
-            chest: restRef.current!.bones.chest ? { node: restRef.current!.bones.chest.node, qWorld0: restRef.current!.bones.chest.qWorld0.clone(), qLocal0: restRef.current!.bones.chest.qLocal0.clone() } : undefined,
-          },
-        };
+          const neckNode = get(VRMHumanBoneName.Neck);
+          const lUpper = get(VRMHumanBoneName.LeftUpperArm);
+          const rUpper = get(VRMHumanBoneName.RightUpperArm);
+          const lLower = get(VRMHumanBoneName.LeftLowerArm);
+          const rLower = get(VRMHumanBoneName.RightLowerArm);
+          const lHand = get(VRMHumanBoneName.LeftHand);
+          const rHand = get(VRMHumanBoneName.RightHand);
+          const chest =
+            get(VRMHumanBoneName.UpperChest) ||
+            get(VRMHumanBoneName.Chest) ||
+            get(VRMHumanBoneName.Spine);
+          const qWorld = (n?: THREE.Object3D) => {
+            const q = new THREE.Quaternion();
+            n?.getWorldQuaternion(q);
+            return q;
+          };
+          const qLocal = (n?: THREE.Object3D) =>
+            n ? n.quaternion.clone() : new THREE.Quaternion();
+          const dirOf = (a?: THREE.Object3D, b?: THREE.Object3D) => {
+            if (!a || !b) return new THREE.Vector3(0, 1, 0);
+            const pa = new THREE.Vector3();
+            const pb = new THREE.Vector3();
+            a.getWorldPosition(pa);
+            b.getWorldPosition(pb);
+            return new THREE.Vector3().subVectors(pb, pa).normalize();
+          };
+          const rig = {
+            trunkQuatVRM,
+            bones: {
+              neck: neckNode
+                ? {
+                    node: neckNode,
+                    qWorld0: qWorld(neckNode),
+                    qLocal0: qLocal(neckNode),
+                  }
+                : undefined,
+              lShoulder:
+                lShoulderNode && lUpper
+                  ? {
+                      node: lShoulderNode,
+                      child: lUpper,
+                      qWorld0: qWorld(lShoulderNode),
+                      qLocal0: qLocal(lShoulderNode),
+                      dirWorld0: dirOf(lShoulderNode, lUpper),
+                    }
+                  : undefined,
+              rShoulder:
+                rShoulderNode && rUpper
+                  ? {
+                      node: rShoulderNode,
+                      child: rUpper,
+                      qWorld0: qWorld(rShoulderNode),
+                      qLocal0: qLocal(rShoulderNode),
+                      dirWorld0: dirOf(rShoulderNode, rUpper),
+                    }
+                  : undefined,
+              lUpperArm:
+                lUpper && lLower
+                  ? {
+                      node: lUpper,
+                      child: lLower,
+                      qWorld0: qWorld(lUpper),
+                      qLocal0: qLocal(lUpper),
+                      dirWorld0: dirOf(lUpper, lLower),
+                    }
+                  : undefined,
+              rUpperArm:
+                rUpper && rLower
+                  ? {
+                      node: rUpper,
+                      child: rLower,
+                      qWorld0: qWorld(rUpper),
+                      qLocal0: qLocal(rUpper),
+                      dirWorld0: dirOf(rUpper, rLower),
+                    }
+                  : undefined,
+              lLowerArm:
+                lLower && lHand
+                  ? {
+                      node: lLower,
+                      child: lHand,
+                      qWorld0: qWorld(lLower),
+                      qLocal0: qLocal(lLower),
+                      dirWorld0: dirOf(lLower, lHand),
+                    }
+                  : undefined,
+              rLowerArm:
+                rLower && rHand
+                  ? {
+                      node: rLower,
+                      child: rHand,
+                      qWorld0: qWorld(rLower),
+                      qLocal0: qLocal(rLower),
+                      dirWorld0: dirOf(rLower, rHand),
+                    }
+                  : undefined,
+              chest: chest
+                ? {
+                    node: chest,
+                    qWorld0: qWorld(chest),
+                    qLocal0: qLocal(chest),
+                  }
+                : undefined,
+            },
+          };
+          restRef.current = {
+            trunkQuatVRM: rig.trunkQuatVRM.clone(),
+            bones: {
+              neck: rig.bones.neck
+                ? {
+                    node: rig.bones.neck.node,
+                    qWorld0: rig.bones.neck.qWorld0.clone(),
+                    qLocal0: rig.bones.neck.qLocal0.clone(),
+                  }
+                : undefined,
+              lShoulder: rig.bones.lShoulder
+                ? {
+                    node: rig.bones.lShoulder.node,
+                    child: rig.bones.lShoulder.child,
+                    qWorld0: rig.bones.lShoulder.qWorld0.clone(),
+                    qLocal0: rig.bones.lShoulder.qLocal0.clone(),
+                    dirWorld0: rig.bones.lShoulder.dirWorld0.clone(),
+                  }
+                : undefined,
+              rShoulder: rig.bones.rShoulder
+                ? {
+                    node: rig.bones.rShoulder.node,
+                    child: rig.bones.rShoulder.child,
+                    qWorld0: rig.bones.rShoulder.qWorld0.clone(),
+                    qLocal0: rig.bones.rShoulder.qLocal0.clone(),
+                    dirWorld0: rig.bones.rShoulder.dirWorld0.clone(),
+                  }
+                : undefined,
+              lUpperArm: rig.bones.lUpperArm
+                ? {
+                    node: rig.bones.lUpperArm.node,
+                    child: rig.bones.lUpperArm.child,
+                    qWorld0: rig.bones.lUpperArm.qWorld0.clone(),
+                    qLocal0: rig.bones.lUpperArm.qLocal0.clone(),
+                    dirWorld0: rig.bones.lUpperArm.dirWorld0.clone(),
+                  }
+                : undefined,
+              rUpperArm: rig.bones.rUpperArm
+                ? {
+                    node: rig.bones.rUpperArm.node,
+                    child: rig.bones.rUpperArm.child,
+                    qWorld0: rig.bones.rUpperArm.qWorld0.clone(),
+                    qLocal0: rig.bones.rUpperArm.qLocal0.clone(),
+                    dirWorld0: rig.bones.rUpperArm.dirWorld0.clone(),
+                  }
+                : undefined,
+              lLowerArm: rig.bones.lLowerArm
+                ? {
+                    node: rig.bones.lLowerArm.node,
+                    child: rig.bones.lLowerArm.child,
+                    qWorld0: rig.bones.lLowerArm.qWorld0.clone(),
+                    qLocal0: rig.bones.lLowerArm.qLocal0.clone(),
+                    dirWorld0: rig.bones.lLowerArm.dirWorld0.clone(),
+                  }
+                : undefined,
+              rLowerArm: rig.bones.rLowerArm
+                ? {
+                    node: rig.bones.rLowerArm.node,
+                    child: rig.bones.rLowerArm.child,
+                    qWorld0: rig.bones.rLowerArm.qWorld0.clone(),
+                    qLocal0: rig.bones.rLowerArm.qLocal0.clone(),
+                    dirWorld0: rig.bones.rLowerArm.dirWorld0.clone(),
+                  }
+                : undefined,
+              chest: rig.bones.chest
+                ? {
+                    node: rig.bones.chest.node,
+                    qWorld0: rig.bones.chest.qWorld0.clone(),
+                    qLocal0: rig.bones.chest.qLocal0.clone(),
+                  }
+                : undefined,
+            },
+          };
+          // 初期キャリブレーションはrestのクローンを使用
+          calibRef.current = {
+            trunkQuatVRM: restRef.current!.trunkQuatVRM.clone(),
+            bones: {
+              neck: restRef.current!.bones.neck
+                ? {
+                    node: restRef.current!.bones.neck.node,
+                    qWorld0: restRef.current!.bones.neck.qWorld0.clone(),
+                    qLocal0: restRef.current!.bones.neck.qLocal0.clone(),
+                  }
+                : undefined,
+              lShoulder: restRef.current!.bones.lShoulder
+                ? {
+                    node: restRef.current!.bones.lShoulder.node,
+                    child: restRef.current!.bones.lShoulder.child,
+                    qWorld0: restRef.current!.bones.lShoulder.qWorld0.clone(),
+                    qLocal0: restRef.current!.bones.lShoulder.qLocal0.clone(),
+                    dirWorld0:
+                      restRef.current!.bones.lShoulder.dirWorld0.clone(),
+                  }
+                : undefined,
+              rShoulder: restRef.current!.bones.rShoulder
+                ? {
+                    node: restRef.current!.bones.rShoulder.node,
+                    child: restRef.current!.bones.rShoulder.child,
+                    qWorld0: restRef.current!.bones.rShoulder.qWorld0.clone(),
+                    qLocal0: restRef.current!.bones.rShoulder.qLocal0.clone(),
+                    dirWorld0:
+                      restRef.current!.bones.rShoulder.dirWorld0.clone(),
+                  }
+                : undefined,
+              lUpperArm: restRef.current!.bones.lUpperArm
+                ? {
+                    node: restRef.current!.bones.lUpperArm.node,
+                    child: restRef.current!.bones.lUpperArm.child,
+                    qWorld0: restRef.current!.bones.lUpperArm.qWorld0.clone(),
+                    qLocal0: restRef.current!.bones.lUpperArm.qLocal0.clone(),
+                    dirWorld0:
+                      restRef.current!.bones.lUpperArm.dirWorld0.clone(),
+                  }
+                : undefined,
+              rUpperArm: restRef.current!.bones.rUpperArm
+                ? {
+                    node: restRef.current!.bones.rUpperArm.node,
+                    child: restRef.current!.bones.rUpperArm.child,
+                    qWorld0: restRef.current!.bones.rUpperArm.qWorld0.clone(),
+                    qLocal0: restRef.current!.bones.rUpperArm.qLocal0.clone(),
+                    dirWorld0:
+                      restRef.current!.bones.rUpperArm.dirWorld0.clone(),
+                  }
+                : undefined,
+              lLowerArm: restRef.current!.bones.lLowerArm
+                ? {
+                    node: restRef.current!.bones.lLowerArm.node,
+                    child: restRef.current!.bones.lLowerArm.child,
+                    qWorld0: restRef.current!.bones.lLowerArm.qWorld0.clone(),
+                    qLocal0: restRef.current!.bones.lLowerArm.qLocal0.clone(),
+                    dirWorld0:
+                      restRef.current!.bones.lLowerArm.dirWorld0.clone(),
+                  }
+                : undefined,
+              rLowerArm: restRef.current!.bones.rLowerArm
+                ? {
+                    node: restRef.current!.bones.rLowerArm.node,
+                    child: restRef.current!.bones.rLowerArm.child,
+                    qWorld0: restRef.current!.bones.rLowerArm.qWorld0.clone(),
+                    qLocal0: restRef.current!.bones.rLowerArm.qLocal0.clone(),
+                    dirWorld0:
+                      restRef.current!.bones.rLowerArm.dirWorld0.clone(),
+                  }
+                : undefined,
+              chest: restRef.current!.bones.chest
+                ? {
+                    node: restRef.current!.bones.chest.node,
+                    qWorld0: restRef.current!.bones.chest.qWorld0.clone(),
+                    qLocal0: restRef.current!.bones.chest.qLocal0.clone(),
+                  }
+                : undefined,
+            },
+          };
         }
-      } catch { void 0; }
+      } catch {
+        void 0;
+      }
     };
 
     const loadFromURL = async (url: string) => {
@@ -562,14 +994,24 @@ export function VrmViewer() {
         const vrm = gltf.userData.vrm as VRM | undefined;
         if (!vrm) {
           setStatus("VRMではありません（0.x想定）");
-          try { URL.revokeObjectURL(url); } catch { void 0; }
+          try {
+            URL.revokeObjectURL(url);
+          } catch {
+            void 0;
+          }
           return;
         }
         onLoadedVRM(vrm);
       } catch (e) {
-        setStatus(e instanceof Error ? `読み込み失敗: ${e.message}` : "読み込み失敗");
+        setStatus(
+          e instanceof Error ? `読み込み失敗: ${e.message}` : "読み込み失敗",
+        );
       } finally {
-        try { URL.revokeObjectURL(url); } catch { void 0; }
+        try {
+          URL.revokeObjectURL(url);
+        } catch {
+          void 0;
+        }
       }
     };
 
@@ -585,17 +1027,28 @@ export function VrmViewer() {
         }
         onLoadedVRM(vrm);
       } catch (e) {
-        setStatus(e instanceof Error ? `読み込み失敗: ${e.message}` : "読み込み失敗");
+        setStatus(
+          e instanceof Error ? `読み込み失敗: ${e.message}` : "読み込み失敗",
+        );
       }
     };
 
     const onSelect = (ev: Event) => {
       const ce = ev as CustomEvent<{ url?: string; buffer?: ArrayBuffer }>;
       const d = ce.detail || {};
-      if (d.buffer instanceof ArrayBuffer) { void loadFromBuffer(d.buffer); return; }
-      if (typeof d.url === "string" && d.url) { void loadFromURL(d.url); }
+      if (d.buffer instanceof ArrayBuffer) {
+        void loadFromBuffer(d.buffer);
+        return;
+      }
+      if (typeof d.url === "string" && d.url) {
+        void loadFromURL(d.url);
+      }
     };
-    const onReset = () => { disposeCurrent(); calibRef.current = null; setStatus("未読み込み"); };
+    const onReset = () => {
+      disposeCurrent();
+      calibRef.current = null;
+      setStatus("未読み込み");
+    };
 
     const onPose = (ev: Event) => {
       const ce = ev as CustomEvent<{
@@ -616,38 +1069,56 @@ export function VrmViewer() {
       const neck = humanoid?.getNormalizedBoneNode(VRMHumanBoneName.Neck);
       // 上半身追従が有効な間は、首はRESTへ寄せて折れを防ぎ、頭のみ回す
       const now = performance.now();
-      const upperActive = (upper3dRef.current && now - last3DAtRef.current < 180) ||
+      const upperActive =
+        (upper3dRef.current && now - last3DAtRef.current < 180) ||
         (upper2dRef.current && now - last2DAtRef.current < 180);
       if (upperActive) {
         if (neck && calibRef.current?.bones.neck?.qLocal0) {
           neck.quaternion.slerp(calibRef.current.bones.neck.qLocal0, 0.35);
         }
-        if (head) head.rotation.set((p.pitch ?? 0) * 0.6, (p.yaw ?? 0) * 0.6, (p.roll ?? 0) * 0.6);
+        if (head)
+          head.rotation.set(
+            (p.pitch ?? 0) * 0.6,
+            (p.yaw ?? 0) * 0.6,
+            (p.roll ?? 0) * 0.6,
+          );
       } else {
         if (head) head.rotation.set(p.pitch ?? 0, p.yaw ?? 0, p.roll ?? 0);
-        if (neck) neck.rotation.set((p.pitch ?? 0) * 0.4, (p.yaw ?? 0) * 0.4, (p.roll ?? 0) * 0.4);
+        if (neck)
+          neck.rotation.set(
+            (p.pitch ?? 0) * 0.4,
+            (p.yaw ?? 0) * 0.4,
+            (p.roll ?? 0) * 0.4,
+          );
       }
       const em = vrm.expressionManager;
       if (em) {
         const clamp01 = (x: number) => (x < 0 ? 0 : x > 1 ? 1 : x);
-        if (typeof p.blink === "number") em.setValue(VRMExpressionPresetName.Blink, clamp01(p.blink));
-        if (typeof p.mouth === "number") em.setValue(VRMExpressionPresetName.Aa, clamp01(p.mouth));
+        if (typeof p.blink === "number")
+          em.setValue(VRMExpressionPresetName.Blink, clamp01(p.blink));
+        if (typeof p.mouth === "number")
+          em.setValue(VRMExpressionPresetName.Aa, clamp01(p.mouth));
         try {
           window.dispatchEvent(
             new CustomEvent("motioncast:vrm-expression", {
               detail: { blink: p.blink, mouth: p.mouth, ts: performance.now() },
-            })
+            }),
           );
-        } catch { void 0; }
+        } catch {
+          void 0;
+        }
       }
     };
 
     // 2D上半身の簡易リターゲット（肩/腕/肘/手首）
     type P2 = { x: number; y: number };
     type Upper2D = {
-      lShoulder?: P2; rShoulder?: P2;
-      lElbow?: P2; rElbow?: P2;
-      lWrist?: P2; rWrist?: P2;
+      lShoulder?: P2;
+      rShoulder?: P2;
+      lElbow?: P2;
+      rElbow?: P2;
+      lWrist?: P2;
+      rWrist?: P2;
     };
     const onUpper2D = (ev: Event) => {
       const ce = ev as CustomEvent<Upper2D>;
@@ -658,10 +1129,16 @@ export function VrmViewer() {
 
     window.addEventListener("motioncast:vrm-select", onSelect as EventListener);
     window.addEventListener("motioncast:vrm-reset", onReset);
-    document.addEventListener("motioncast:vrm-select", onSelect as EventListener);
+    document.addEventListener(
+      "motioncast:vrm-select",
+      onSelect as EventListener,
+    );
     document.addEventListener("motioncast:vrm-reset", onReset as EventListener);
     window.addEventListener("motioncast:pose-update", onPose as EventListener);
-    window.addEventListener("motioncast:upper-body-update", onUpper2D as EventListener);
+    window.addEventListener(
+      "motioncast:upper-body-update",
+      onUpper2D as EventListener,
+    );
     // 上半身3D（優先）
     const onUpper3D = (ev: Event) => {
       const ce = ev as CustomEvent<Upper3D>;
@@ -669,7 +1146,10 @@ export function VrmViewer() {
       upper3dRef.current = ce.detail;
       last3DAtRef.current = performance.now();
     };
-    window.addEventListener("motioncast:upper-body-3d", onUpper3D as EventListener);
+    window.addEventListener(
+      "motioncast:upper-body-3d",
+      onUpper3D as EventListener,
+    );
 
     // Fallback: saved fileName -> /vrm/<name>
     try {
@@ -677,36 +1157,83 @@ export function VrmViewer() {
       if (saved && saved !== "未読み込み" && !vrmRef.current) {
         void loadFromURL(`/vrm/${encodeURIComponent(saved)}`);
       }
-    } catch { void 0; }
+    } catch {
+      void 0;
+    }
 
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", onResize);
       ro.disconnect();
-      window.removeEventListener("motioncast:vrm-select", onSelect as EventListener);
+      window.removeEventListener(
+        "motioncast:vrm-select",
+        onSelect as EventListener,
+      );
       window.removeEventListener("motioncast:vrm-reset", onReset);
-      document.removeEventListener("motioncast:vrm-select", onSelect as EventListener);
-      document.removeEventListener("motioncast:vrm-reset", onReset as EventListener);
-      window.removeEventListener("motioncast:pose-update", onPose as EventListener);
-      window.removeEventListener("motioncast:upper-body-update", onUpper2D as EventListener);
-      window.removeEventListener("motioncast:upper-body-3d", onUpper3D as EventListener);
+      document.removeEventListener(
+        "motioncast:vrm-select",
+        onSelect as EventListener,
+      );
+      document.removeEventListener(
+        "motioncast:vrm-reset",
+        onReset as EventListener,
+      );
+      window.removeEventListener(
+        "motioncast:pose-update",
+        onPose as EventListener,
+      );
+      window.removeEventListener(
+        "motioncast:upper-body-update",
+        onUpper2D as EventListener,
+      );
+      window.removeEventListener(
+        "motioncast:upper-body-3d",
+        onUpper3D as EventListener,
+      );
       try {
         const dom = renderer.domElement;
-        if ((dom as unknown as { isConnected?: boolean }).isConnected) dom.remove();
+        if ((dom as unknown as { isConnected?: boolean }).isConnected)
+          dom.remove();
         else if (dom.parentElement === el) el.removeChild(dom);
-      } catch { void 0; }
+      } catch {
+        void 0;
+      }
       try {
         if (cubeRef.current) {
-          try { scene.remove(cubeRef.current); } catch { void 0; }
-          try { cubeRef.current.geometry.dispose(); } catch { void 0; }
-          try { (cubeRef.current.material as unknown as THREE.Material)?.dispose?.(); } catch { void 0; }
+          try {
+            scene.remove(cubeRef.current);
+          } catch {
+            void 0;
+          }
+          try {
+            cubeRef.current.geometry.dispose();
+          } catch {
+            void 0;
+          }
+          try {
+            (
+              cubeRef.current.material as unknown as THREE.Material
+            )?.dispose?.();
+          } catch {
+            void 0;
+          }
           cubeRef.current = null;
         }
-      } catch { void 0; }
-      if (vrmRef.current) {
-        try { VRMUtils.deepDispose(vrmRef.current.scene); } catch { void 0; }
+      } catch {
+        void 0;
       }
-      try { renderer.dispose(); } catch { void 0; }
+      if (vrmRef.current) {
+        try {
+          VRMUtils.deepDispose(vrmRef.current.scene);
+        } catch {
+          void 0;
+        }
+      }
+      try {
+        renderer.dispose();
+      } catch {
+        void 0;
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pixelRatioCap]);
@@ -725,9 +1252,21 @@ export function VrmViewer() {
       cubeRef.current = cube;
     } else if (!showCube && cubeRef.current) {
       const cube = cubeRef.current;
-      try { scene.remove(cube); } catch { void 0; }
-      try { cube.geometry.dispose(); } catch { void 0; }
-      try { (cube.material as unknown as THREE.Material)?.dispose?.(); } catch { void 0; }
+      try {
+        scene.remove(cube);
+      } catch {
+        void 0;
+      }
+      try {
+        cube.geometry.dispose();
+      } catch {
+        void 0;
+      }
+      try {
+        (cube.material as unknown as THREE.Material)?.dispose?.();
+      } catch {
+        void 0;
+      }
       cubeRef.current = null;
     }
   }, [showCube]);
@@ -735,8 +1274,14 @@ export function VrmViewer() {
   return (
     <div className="viewer-root">
       <div className="viewer-canvas-wrap">
-        <div ref={containerRef} className="viewer-canvas" aria-label="VRMビューア" />
-        <div className="viewer-status" aria-live="polite">{status}</div>
+        <div
+          ref={containerRef}
+          className="viewer-canvas"
+          aria-label="VRMビューア"
+        />
+        <div className="viewer-status" aria-live="polite">
+          {status}
+        </div>
       </div>
       <div className="viewer-controls-bar">
         <button
@@ -745,7 +1290,11 @@ export function VrmViewer() {
           onClick={() => {
             const next = !running;
             setRunning(next);
-            try { localStorage.setItem("viewer.running", String(next)); } catch { void 0; }
+            try {
+              localStorage.setItem("viewer.running", String(next));
+            } catch {
+              void 0;
+            }
           }}
         >
           {running ? "描画停止" : "描画再開"}
@@ -755,12 +1304,22 @@ export function VrmViewer() {
           onClick={() => {
             const next = !showCube;
             setShowCube(next);
-            try { localStorage.setItem("viewer.showCube", String(next)); } catch { void 0; }
+            try {
+              localStorage.setItem("viewer.showCube", String(next));
+            } catch {
+              void 0;
+            }
           }}
         >
           {showCube ? "テストキューブを消す" : "テストキューブを生成"}
         </button>
-        <button className="btn" onClick={() => { calibRef.current = null; recalibHoldRef.current = 8; }}>
+        <button
+          className="btn"
+          onClick={() => {
+            calibRef.current = null;
+            recalibHoldRef.current = 8;
+          }}
+        >
           再キャリブレーション
         </button>
         <label style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
@@ -770,7 +1329,11 @@ export function VrmViewer() {
             onChange={(e) => {
               const v = e.target.checked;
               setInvertChestPitch(v);
-              try { localStorage.setItem("viewer.invertChestPitch", String(v)); } catch { void 0; }
+              try {
+                localStorage.setItem("viewer.invertChestPitch", String(v));
+              } catch {
+                void 0;
+              }
             }}
           />
           胸ピッチを反転
@@ -782,7 +1345,11 @@ export function VrmViewer() {
             onChange={(e) => {
               const v = Number(e.target.value) || 1;
               setPixelRatioCap(v);
-              try { localStorage.setItem("viewer.pixelRatioCap", String(v)); } catch { void 0; }
+              try {
+                localStorage.setItem("viewer.pixelRatioCap", String(v));
+              } catch {
+                void 0;
+              }
             }}
           >
             <option value="1">PR 1.0</option>

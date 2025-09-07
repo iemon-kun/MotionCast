@@ -116,9 +116,11 @@ export function OscBridge() {
   const upper3dRef = useRef<UpperBody3D | null>(null); // latest 3D joints with visibility
   // 表情ソース: raw | vrm
   const exprSourceRef = useRef<"raw" | "vrm">("raw");
-  const vrmExprRef = useRef<{ blink?: number; mouth?: number; ts?: number } | null>(
-    null,
-  );
+  const vrmExprRef = useRef<{
+    blink?: number;
+    mouth?: number;
+    ts?: number;
+  } | null>(null);
   // Lightweight metrics (enabled via UI toggle)
   const metricsEnabledRef = useRef<boolean>(false);
   const tickCountRef = useRef<number>(0);
@@ -182,11 +184,15 @@ export function OscBridge() {
     // 表情ソース切替とVRM表情値
     const onExprSrc = (ev: Event) => {
       const ce = ev as CustomEvent<unknown>;
-      const v = (ce?.detail as unknown) as string;
+      const v = ce?.detail as unknown as string;
       exprSourceRef.current = v === "vrm" ? "vrm" : "raw";
     };
     const onVrmExpr = (ev: Event) => {
-      const ce = ev as CustomEvent<{ blink?: number; mouth?: number; ts?: number }>;
+      const ce = ev as CustomEvent<{
+        blink?: number;
+        mouth?: number;
+        ts?: number;
+      }>;
       vrmExprRef.current = ce.detail || null;
     };
     window.addEventListener(
