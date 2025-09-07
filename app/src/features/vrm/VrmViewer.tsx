@@ -128,7 +128,7 @@ export function VrmViewer() {
   }, [running]);
 
   // 3D上半身リターゲット用の最新値とキャリブレーション
-  type P3 = { x: number; y: number; z: number };
+  type P3 = { x: number; y: number; z: number; v?: number };
   type Upper3D = {
     lShoulder?: P3;
     rShoulder?: P3;
@@ -699,8 +699,8 @@ export function VrmViewer() {
             const parentOf = (n?: THREE.Object3D | null) =>
               n ? (n.parent as THREE.Object3D | null) : null;
             const bones = calib.bones;
-            // 可視性チェック: v>=0.3 のときのみ適用
-            const visOk = (p?: { v?: number }) =>
+            // 可視性チェック（型ガード）: v>=0.3 のときのみ適用
+            const visOk = (p?: P3): p is P3 =>
               !!p && typeof p.v === "number" && p.v >= 0.3;
             const slerpRest = (
               node?: THREE.Object3D,

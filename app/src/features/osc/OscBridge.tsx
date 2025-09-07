@@ -158,6 +158,13 @@ export function OscBridge() {
     r_wrist: { phase: "hold", lastSeen: 0, lastOut: IDENTITY },
   });
   const rafRef = useRef<number>(0);
+  // Yaw/offset (tracker alignment)
+  const yawDegRef = useRef<number>(0);
+  const offsetRef = useRef<{ x: number; y: number; z: number }>({
+    x: 0,
+    y: 0,
+    z: 0,
+  });
   // Calibration (basis/scale)
   const calibRef = useRef<null | {
     origin: { x: number; y: number; z: number };
