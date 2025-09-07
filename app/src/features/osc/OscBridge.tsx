@@ -224,7 +224,7 @@ export function OscBridge() {
         ) => ({ x: a.y * b.z - a.z * b.y, y: a.z * b.x - a.x * b.z, z: a.x * b.y - a.y * b.x });
         const x = norm(vx);
         let y = norm(vym);
-        let z = norm(cross(x, y));
+        const z = norm(cross(x, y));
         y = norm(cross(z, x));
         const measuredShoulder = Math.hypot(vx.x, vx.y, vx.z) || 1;
         const target = Math.max(0.2, Math.min(0.8, shoulderTargetRef.current));

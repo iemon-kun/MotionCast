@@ -542,7 +542,7 @@ export function VrmViewer() {
               qFlipCacheRef.current._qMapFlip = best ?? null;
             };
             chooseFlipIfNeeded();
-            let q_map = q_map_base.clone();
+            const q_map = q_map_base.clone();
             const chosen = qFlipCacheRef.current?._qMapFlip;
             if (chosen) q_map.multiply(chosen);
             // デバッグ: 上下反転検証用（必要時にUIからON）
@@ -553,24 +553,7 @@ export function VrmViewer() {
             // Dynamic pole (VRM world): MP胸の前方向 z_m をVRM空間へ写像
             const pole_dyn = z_m.clone().applyQuaternion(q_map).normalize();
 
-            const calcAxisAngle = (a: THREE.Vector3, b: THREE.Vector3) => {
-              const an = a.clone().normalize();
-              const bn = b.clone().normalize();
-              const dot = Math.max(-1, Math.min(1, an.dot(bn)));
-              if (dot > 0.9995)
-                return { axis: new THREE.Vector3(1, 0, 0), angle: 0 };
-              if (dot < -0.9995) {
-                const axis = new THREE.Vector3(1, 0, 0);
-                if (Math.abs(an.dot(axis)) > 0.9) axis.set(0, 1, 0);
-                const ortho = new THREE.Vector3()
-                  .crossVectors(an, axis)
-                  .normalize();
-                return { axis: ortho, angle: Math.PI };
-              }
-              const axis = new THREE.Vector3().crossVectors(an, bn).normalize();
-              const angle = Math.acos(dot);
-              return { axis, angle };
-            };
+            // calcAxisAngle (旧ロジック) は未使用のため削除
 
             const applyBone = (
               bone: {
