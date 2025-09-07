@@ -20,6 +20,7 @@ export type UpperBodyDetail = {
 
 export type PosePoint3D = { x: number; y: number; z: number; v?: number };
 export type UpperBody3DDetail = {
+  nose?: PosePoint3D;
   lShoulder?: PosePoint3D;
   lElbow?: PosePoint3D;
   lWrist?: PosePoint3D;
@@ -221,9 +222,18 @@ export function usePoseLandmarker(enabled: boolean, fps = 15) {
               | { x: number; y: number; z: number; visibility?: number }
               | undefined;
             if (!p) return undefined;
-            return { x: p.x, y: p.y, z: p.z, v: p.visibility };
+            // Some world landmarks do not expose visibility. Fallback to 2D landmark visibility.
+            let v: number | undefined = undefined;
+            const vis3 = (p as { visibility?: number } | undefined)?.visibility;
+            if (typeof vis3 === "number") v = vis3;
+            else {
+              const f2 = first?.[i] as { visibility?: number } | undefined;
+              if (typeof f2?.visibility === "number") v = f2.visibility;
+            }
+            return { x: p.x, y: p.y, z: p.z, v };
           };
           const raw3d: UpperBody3DDetail = {
+            nose: pick3(0),
             lShoulder: pick3(idx.lShoulder),
             rShoulder: pick3(idx.rShoulder),
             lElbow: pick3(idx.lElbow),
@@ -235,6 +245,7 @@ export function usePoseLandmarker(enabled: boolean, fps = 15) {
             ts: now,
           };
           const d3: UpperBody3DDetail = {
+            nose: raw3d.nose && ema3d("nose3d", raw3d.nose),
             lShoulder: raw3d.lShoulder && ema3d("lShoulder3d", raw3d.lShoulder),
             rShoulder: raw3d.rShoulder && ema3d("rShoulder3d", raw3d.rShoulder),
             lElbow: raw3d.lElbow && ema3d("lElbow3d", raw3d.lElbow),

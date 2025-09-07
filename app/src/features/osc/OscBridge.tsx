@@ -37,6 +37,7 @@ type UBKey =
 
 type UB3DPoint = { x: number; y: number; z: number; v?: number };
 type UpperBody3D = {
+  nose?: UB3DPoint;
   lShoulder?: UB3DPoint;
   rShoulder?: UB3DPoint;
   lElbow?: UB3DPoint;
@@ -157,6 +158,22 @@ export function OscBridge() {
     r_wrist: { phase: "hold", lastSeen: 0, lastOut: IDENTITY },
   });
   const rafRef = useRef<number>(0);
+  // Yaw/offset (tracker alignment)
+  const yawDegRef = useRef<number>(0);
+  const offsetRef = useRef<{ x: number; y: number; z: number }>({
+    x: 0,
+    y: 0,
+    z: 0,
+  });
+  // Calibration (basis/scale)
+  const calibRef = useRef<null | {
+    origin: { x: number; y: number; z: number };
+    x: { x: number; y: number; z: number };
+    y: { x: number; y: number; z: number };
+    z: { x: number; y: number; z: number };
+    scale: number;
+  }>(null);
+  const shoulderTargetRef = useRef<number>(0.38);
 
   useEffect(() => {
     const onPose = (ev: Event) => {
@@ -179,6 +196,62 @@ export function OscBridge() {
     window.addEventListener(
       "motioncast:upper-body-3d",
       onUpper3d as EventListener,
+    );
+    // Calibration triggers and params
+    const onCalib = () => {
+      try {
+        const u3 = upper3dRef.current;
+        if (!u3 || !u3.lShoulder || !u3.rShoulder || !(u3.lHip || u3.rHip))
+          return;
+        const pLs = u3.lShoulder;
+        const pRs = u3.rShoulder;
+        const pLc = u3.lHip ?? u3.rHip!;
+        const pRc = u3.rHip ?? u3.lHip!;
+        const origin = {
+          x: (pLc.x + pRc.x) / 2,
+          y: (pLc.y + pRc.y) / 2,
+          z: (pLc.z + pRc.z) / 2,
+        };
+        const vx = { x: pRs.x - pLs.x, y: pRs.y - pLs.y, z: pRs.z - pLs.z };
+        const vym = {
+          x: (pLs.x + pRs.x) * 0.5 - origin.x,
+          y: (pLs.y + pRs.y) * 0.5 - origin.y,
+          z: (pLs.z + pRs.z) * 0.5 - origin.z,
+        };
+        const norm = (v: { x: number; y: number; z: number }) => {
+          const l = Math.hypot(v.x, v.y, v.z) || 1;
+          return { x: v.x / l, y: v.y / l, z: v.z / l };
+        };
+        const cross = (
+          a: { x: number; y: number; z: number },
+          b: { x: number; y: number; z: number },
+        ) => ({
+          x: a.y * b.z - a.z * b.y,
+          y: a.z * b.x - a.x * b.z,
+          z: a.x * b.y - a.y * b.x,
+        });
+        const x = norm(vx);
+        let y = norm(vym);
+        const z = norm(cross(x, y));
+        y = norm(cross(z, x));
+        const measuredShoulder = Math.hypot(vx.x, vx.y, vx.z) || 1;
+        const target = Math.max(0.2, Math.min(0.8, shoulderTargetRef.current));
+        const scale = target / measuredShoulder;
+        calibRef.current = { origin, x, y, z, scale };
+      } catch {
+        /* noop */
+      }
+    };
+    const onCalibParams = (ev: Event) => {
+      const ce = ev as CustomEvent<{ shoulderWidthM?: number }>;
+      const sw = ce.detail?.shoulderWidthM;
+      if (typeof sw === "number" && Number.isFinite(sw) && sw > 0)
+        shoulderTargetRef.current = Math.max(0.2, Math.min(0.8, sw));
+    };
+    window.addEventListener("motioncast:calibrate", onCalib);
+    window.addEventListener(
+      "motioncast:tracker-calib-params",
+      onCalibParams as EventListener,
     );
 
     // 表情ソース切替とVRM表情値
@@ -273,6 +346,99 @@ export function OscBridge() {
         const cfg = cfgRef.current;
         if (!cfg.enabled) {
           invoke("osc_update_upper", { upper }).catch(() => {});
+          // 位置（トラッカー）も可能なら送る
+          const u3 = upper3dRef.current;
+          if (u3) {
+            const visOk = (p?: UB3DPoint) =>
+              !!p && (typeof p.v !== "number" || p.v >= cfg.visLost);
+            const chest =
+              visOk(u3.lShoulder) && visOk(u3.rShoulder)
+                ? {
+                    x: (u3.lShoulder!.x + u3.rShoulder!.x) / 2,
+                    y: (u3.lShoulder!.y + u3.rShoulder!.y) / 2,
+                    z: (u3.lShoulder!.z + u3.rShoulder!.z) / 2,
+                  }
+                : undefined;
+            const hips =
+              visOk(u3.lHip) && visOk(u3.rHip)
+                ? {
+                    x: (u3.lHip!.x + u3.rHip!.x) / 2,
+                    y: (u3.lHip!.y + u3.rHip!.y) / 2,
+                    z: (u3.lHip!.z + u3.rHip!.z) / 2,
+                  }
+                : undefined;
+            const head = visOk(u3.nose)
+              ? { x: u3.nose!.x, y: u3.nose!.y, z: u3.nose!.z }
+              : undefined;
+            const l_wrist = visOk(u3.lWrist)
+              ? {
+                  x: u3.lWrist!.x,
+                  y: u3.lWrist!.y,
+                  z: u3.lWrist!.z,
+                }
+              : undefined;
+            const r_wrist = visOk(u3.rWrist)
+              ? {
+                  x: u3.rWrist!.x,
+                  y: u3.rWrist!.y,
+                  z: u3.rWrist!.z,
+                }
+              : undefined;
+            const applyCalib = (v?: {
+              x: number;
+              y: number;
+              z: number;
+            }): { x: number; y: number; z: number } | undefined => {
+              const C = calibRef.current;
+              if (!v || !C) return v;
+              const rel = {
+                x: v.x - C.origin.x,
+                y: v.y - C.origin.y,
+                z: v.z - C.origin.z,
+              };
+              const dot = (
+                a: { x: number; y: number; z: number },
+                b: { x: number; y: number; z: number },
+              ) => a.x * b.x + a.y * b.y + a.z * b.z;
+              const ax = dot(rel, C.x);
+              const ay = dot(rel, C.y);
+              const az = dot(rel, C.z);
+              return { x: ax * C.scale, y: ay * C.scale, z: az * C.scale };
+            };
+            const tHead = applyCalib(head);
+            const tChest = applyCalib(chest);
+            const tHips = applyCalib(hips);
+            const tLWrist = applyCalib(l_wrist);
+            const tRWrist = applyCalib(r_wrist);
+            const yaw = (yawDegRef.current * Math.PI) / 180;
+            const s = Math.sin(yaw);
+            const c = Math.cos(yaw);
+            const off = offsetRef.current;
+            const rotT = (v?: {
+              x: number;
+              y: number;
+              z: number;
+            }): { x: number; y: number; z: number } | undefined => {
+              if (!v) return v;
+              const xr = v.x * c + v.z * s;
+              const zr = -v.x * s + v.z * c;
+              return { x: xr + off.x, y: v.y + off.y, z: zr + off.z };
+            };
+            const rHead = rotT(tHead);
+            const rChest = rotT(tChest);
+            const rHips = rotT(tHips);
+            const rLWrist = rotT(tLWrist);
+            const rRWrist = rotT(tRWrist);
+            invoke("osc_update_trackers", {
+              trackers: {
+                head: rHead ?? tHead ?? head,
+                chest: rChest ?? tChest ?? chest,
+                hips: rHips ?? tHips ?? hips,
+                l_wrist: rLWrist ?? tLWrist ?? l_wrist,
+                r_wrist: rRWrist ?? tRWrist ?? r_wrist,
+              },
+            }).catch(() => {});
+          }
           return;
         }
         // Stabilize per-bone
@@ -412,6 +578,71 @@ export function OscBridge() {
         }
 
         invoke("osc_update_upper", { upper: stabilized }).catch(() => {});
+        // 位置（トラッカー）: 上半身3Dから胸/腰/両手首/頭（鼻）を抽出
+        if (u3) {
+          const visOk = (p?: UB3DPoint) =>
+            !!p && (typeof p.v !== "number" || p.v >= cfg.visLost);
+          const chest =
+            visOk(u3.lShoulder) && visOk(u3.rShoulder)
+              ? {
+                  x: (u3.lShoulder!.x + u3.rShoulder!.x) / 2,
+                  y: (u3.lShoulder!.y + u3.rShoulder!.y) / 2,
+                  z: (u3.lShoulder!.z + u3.rShoulder!.z) / 2,
+                }
+              : undefined;
+          const hips =
+            visOk(u3.lHip) && visOk(u3.rHip)
+              ? {
+                  x: (u3.lHip!.x + u3.rHip!.x) / 2,
+                  y: (u3.lHip!.y + u3.rHip!.y) / 2,
+                  z: (u3.lHip!.z + u3.rHip!.z) / 2,
+                }
+              : undefined;
+          const head = visOk(u3.nose)
+            ? { x: u3.nose!.x, y: u3.nose!.y, z: u3.nose!.z }
+            : undefined;
+          const l_wrist = visOk(u3.lWrist)
+            ? { x: u3.lWrist!.x, y: u3.lWrist!.y, z: u3.lWrist!.z }
+            : undefined;
+          const r_wrist = visOk(u3.rWrist)
+            ? { x: u3.rWrist!.x, y: u3.rWrist!.y, z: u3.rWrist!.z }
+            : undefined;
+          const applyCalib = (v?: {
+            x: number;
+            y: number;
+            z: number;
+          }): { x: number; y: number; z: number } | undefined => {
+            const C = calibRef.current;
+            if (!v || !C) return v;
+            const rel = {
+              x: v.x - C.origin.x,
+              y: v.y - C.origin.y,
+              z: v.z - C.origin.z,
+            };
+            const dot = (
+              a: { x: number; y: number; z: number },
+              b: { x: number; y: number; z: number },
+            ) => a.x * b.x + a.y * b.y + a.z * b.z;
+            const ax = dot(rel, C.x);
+            const ay = dot(rel, C.y);
+            const az = dot(rel, C.z);
+            return { x: ax * C.scale, y: ay * C.scale, z: az * C.scale };
+          };
+          const tHead = applyCalib(head);
+          const tChest = applyCalib(chest);
+          const tHips = applyCalib(hips);
+          const tLWrist = applyCalib(l_wrist);
+          const tRWrist = applyCalib(r_wrist);
+          invoke("osc_update_trackers", {
+            trackers: {
+              head: tHead ?? head,
+              chest: tChest ?? chest,
+              hips: tHips ?? hips,
+              l_wrist: tLWrist ?? l_wrist,
+              r_wrist: tRWrist ?? r_wrist,
+            },
+          }).catch(() => {});
+        }
       }
       // Metrics accumulation & publish (1Hz)
       if (metricsEnabledRef.current) {
@@ -465,6 +696,11 @@ export function OscBridge() {
       window.removeEventListener(
         "motioncast:upper-body-3d",
         onUpper3d as EventListener,
+      );
+      window.removeEventListener("motioncast:calibrate", onCalib);
+      window.removeEventListener(
+        "motioncast:tracker-calib-params",
+        onCalibParams as EventListener,
       );
       window.removeEventListener(
         "motioncast:expr-source",

@@ -32,6 +32,7 @@ struct AppState {
   schema: Arc<Mutex<Schema>>, // current OSC schema
   smoothing_alpha: Arc<Mutex<f32>>, // EMA alpha [0..1]
   upper: Arc<Mutex<UpperBody>>, // latest upper-body quaternions
+  trackers: Arc<Mutex<Trackers>>, // latest tracker positions (meters, right-handed input)
 }
 
 impl Default for AppState {
@@ -42,6 +43,7 @@ impl Default for AppState {
       schema: Arc::new(Mutex::new(Schema::Minimal)),
       smoothing_alpha: Arc::new(Mutex::new(0.2)),
       upper: Arc::new(Mutex::new(UpperBody::default())),
+      trackers: Arc::new(Mutex::new(Trackers::default())),
     }
   }
 }
@@ -52,6 +54,7 @@ enum Schema {
   ClusterBasic,
   McUpper, // Minimal + upper-body quaternions under /mc/ub/*
   Vmc,     // /VMC/Ext/Bone/Pos (subset)
+  VrchatTrackers, // /tracking/trackers/* (rotation/position). Minimal実装はhead rotationのみ
 }
 
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
@@ -73,6 +76,18 @@ struct UpperBody {
   r_lower_arm: Option<Quat>,
   l_wrist: Option<Quat>,
   r_wrist: Option<Quat>,
+}
+
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
+struct Vec3 { x: f32, y: f32, z: f32 }
+
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
+struct Trackers {
+  head: Option<Vec3>,
+  chest: Option<Vec3>,
+  hips: Option<Vec3>,
+  l_wrist: Option<Vec3>,
+  r_wrist: Option<Vec3>,
 }
 
 // Convert a unit quaternion (right-handed, Three.js-like) into a quaternion
@@ -164,6 +179,7 @@ fn osc_start(state: tauri::State<AppState>, addr: String, port: u16, rate_hz: u3
     let shared_schema = state.schema.clone();
     let shared_alpha = state.smoothing_alpha.clone();
     let shared_upper = state.upper.clone();
+    let shared_trackers = state.trackers.clone();
     let handle = thread::spawn(move || {
       let sock = match UdpSocket::bind("0.0.0.0:0") {
         Ok(s) => s,
@@ -188,6 +204,12 @@ fn osc_start(state: tauri::State<AppState>, addr: String, port: u16, rate_hz: u3
         };
         // Clone the latest upper-body value from the mutex guard if available
         let upper = shared_upper
+          .lock()
+          .ok()
+          .map(|g| (*g).clone())
+          .unwrap_or_default();
+        // Clone latest tracker positions
+        let trackers = shared_trackers
           .lock()
           .ok()
           .map(|g| (*g).clone())
@@ -227,7 +249,41 @@ fn osc_start(state: tauri::State<AppState>, addr: String, port: u16, rate_hz: u3
             // VMC: send a subset of bones we have as local rotation; position is zero.
             // Note: coordinate alignment with Cluster humanoid may need adjustment later.
           ],
+          Schema::VrchatTrackers => vec![
+            // Minimal viable: head rotation only (Euler deg). Position is not sent here yet.
+            OscPacket::Message(OscMessage {
+              addr: "/tracking/trackers/head/rotation".to_string(),
+              // VRChat expects degrees (x,y,z). Here we map (pitch,yaw,roll) to (x,y,z).
+              args: vec![
+                OscType::Float(pitch_deg),
+                OscType::Float(yaw_deg),
+                OscType::Float(roll_deg),
+              ],
+            }),
+          ],
         };
+        if let Schema::VrchatTrackers = schema {
+          // Helper: push position XYZ with Z basis flipped (right-hand -> left-hand)
+          let mut push_pos = |addr: &str, p: &Option<Vec3>| {
+            if let Some(v) = p {
+              content.push(OscPacket::Message(OscMessage {
+                addr: addr.to_string(),
+                args: vec![
+                  OscType::Float(v.x),
+                  OscType::Float(v.y),
+                  OscType::Float(-v.z), // flip Z
+                ],
+              }));
+            }
+          };
+          // Head (if available)
+          push_pos("/tracking/trackers/head/position", &trackers.head);
+          // Assign numeric trackers for torso and wrists (convention)
+          push_pos("/tracking/trackers/1/position", &trackers.chest);
+          push_pos("/tracking/trackers/2/position", &trackers.hips);
+          push_pos("/tracking/trackers/3/position", &trackers.l_wrist);
+          push_pos("/tracking/trackers/4/position", &trackers.r_wrist);
+        }
         if let Schema::McUpper = schema {
           let mut push_q = |addr: &str, q: &Option<Quat>| {
             if let Some(qv) = q {
@@ -337,6 +393,14 @@ fn osc_update_upper(state: tauri::State<AppState>, upper: UpperBody) -> Result<(
 }
 
 #[tauri::command]
+fn osc_update_trackers(state: tauri::State<AppState>, trackers: Trackers) -> Result<(), String> {
+  if let Ok(mut t) = state.trackers.lock() {
+    *t = trackers;
+  }
+  Ok(())
+}
+
+#[tauri::command]
 fn osc_set_schema(state: tauri::State<AppState>, schema: String) -> Result<(), String> {
   let mut s = state.schema.lock().map_err(|_| "lock error")?;
   let normalized = schema.to_lowercase();
@@ -344,6 +408,7 @@ fn osc_set_schema(state: tauri::State<AppState>, schema: String) -> Result<(), S
     "cluster" | "cluster-basic" | "cluster_basic" => Schema::ClusterBasic,
     "upper" | "mc-upper" | "mc_upper" | "ub" => Schema::McUpper,
     "vmc" | "vmd" | "vmc-ext" | "vmc_ext" => Schema::Vmc,
+    "vrchat" | "vrchat-trackers" | "vrchat_trackers" | "trackers" => Schema::VrchatTrackers,
     _ => Schema::Minimal,
   };
   Ok(())
@@ -426,6 +491,7 @@ pub fn run() {
       osc_update_upper,
       osc_set_schema,
       osc_set_smoothing_alpha,
+      osc_update_trackers,
       config_load,
       config_save,
     ])

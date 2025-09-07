@@ -1,3 +1,6 @@
+---
+issue: 12
+---
 ### 背景／目的
 上半身骨格の最小セットをOSCに拡張し、cluster互換を意識した送信を行う。
 参照: https://docs.cluster.mu/creatorkit/ , https://docs.cluster.mu/script/index.html , Docs/02_アーキテクチャ設計書.md

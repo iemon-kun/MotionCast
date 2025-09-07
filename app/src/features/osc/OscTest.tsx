@@ -122,6 +122,80 @@ export function OscTest() {
     }
   });
 
+  // Tracker calibration params
+  const [shoulderWidthM, setShoulderWidthM] = useState<number>(() => {
+    try {
+      const v = Number(localStorage.getItem("tracker.shoulderWidthM"));
+      return Number.isFinite(v) && v > 0 ? v : 0.38;
+    } catch {
+      return 0.38;
+    }
+  });
+
+  // Publish tracker calib params on mount and when changed
+  useEffect(() => {
+    try {
+      window.dispatchEvent(
+        new CustomEvent("motioncast:tracker-calib-params", {
+          detail: { shoulderWidthM },
+        }),
+      );
+      localStorage.setItem("tracker.shoulderWidthM", String(shoulderWidthM));
+    } catch {
+      /* noop */
+    }
+  }, [shoulderWidthM]);
+
+  // Tracker offset/yaw UI state
+  const [yawDeg, setYawDeg] = useState<number>(() => {
+    try {
+      const v = Number(localStorage.getItem("tracker.yawDeg"));
+      return Number.isFinite(v) ? v : 0;
+    } catch {
+      return 0;
+    }
+  });
+  const [offX, setOffX] = useState<number>(() => {
+    try {
+      const v = Number(localStorage.getItem("tracker.offX"));
+      return Number.isFinite(v) ? v : 0;
+    } catch {
+      return 0;
+    }
+  });
+  const [offY, setOffY] = useState<number>(() => {
+    try {
+      const v = Number(localStorage.getItem("tracker.offY"));
+      return Number.isFinite(v) ? v : 0;
+    } catch {
+      return 0;
+    }
+  });
+  const [offZ, setOffZ] = useState<number>(() => {
+    try {
+      const v = Number(localStorage.getItem("tracker.offZ"));
+      return Number.isFinite(v) ? v : 0;
+    } catch {
+      return 0;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      window.dispatchEvent(
+        new CustomEvent("motioncast:tracker-offset-params", {
+          detail: { yawDeg, offset: { x: offX, y: offY, z: offZ } },
+        }),
+      );
+      localStorage.setItem("tracker.yawDeg", String(yawDeg));
+      localStorage.setItem("tracker.offX", String(offX));
+      localStorage.setItem("tracker.offY", String(offY));
+      localStorage.setItem("tracker.offZ", String(offZ));
+    } catch {
+      /* noop */
+    }
+  }, [yawDeg, offX, offY, offZ]);
+
   const publishStab = () => {
     try {
       window.dispatchEvent(
@@ -280,6 +354,9 @@ export function OscTest() {
         >
           <option value="minimal">minimal</option>
           <option value="cluster">cluster-basic</option>
+          <option value="vrchat">
+            vrchat (OSC trackers: head rot + chest/hips/wrists pos)
+          </option>
           <option value="mc-upper">mc-upper (head+face+upper-body quat)</option>
           <option value="vmc">vmc (/VMC/Ext/Bone/Pos subset)</option>
         </select>
@@ -310,6 +387,117 @@ export function OscTest() {
             開始
           </button>
         )}
+      </div>
+      <div className="ipc-row" style={{ marginTop: 6 }}>
+        <label>
+          <input
+            type="number"
+            min={0.2}
+            max={0.8}
+            step={0.01}
+            value={shoulderWidthM}
+            onChange={(e) =>
+              setShoulderWidthM(
+                Math.max(0.2, Math.min(0.8, Number(e.target.value) || 0)),
+              )
+            }
+            className="input-number"
+            aria-label="肩幅(メートル)"
+          />
+          <span style={{ marginLeft: 4 }}>肩幅[m]</span>
+        </label>
+        <button
+          className="btn"
+          onClick={() => {
+            try {
+              window.dispatchEvent(new CustomEvent("motioncast:calibrate"));
+            } catch {
+              /* noop */
+            }
+          }}
+          aria-label="キャリブレーション"
+          style={{ marginLeft: 8 }}
+        >
+          キャリブレーション
+        </button>
+      </div>
+      <div className="ipc-row" style={{ marginTop: 6 }}>
+        <label>
+          <input
+            type="number"
+            min={-180}
+            max={180}
+            step={1}
+            value={yawDeg}
+            onChange={(e) => setYawDeg(Number(e.target.value) || 0)}
+            className="input-number"
+            aria-label="ヨー(度)"
+          />
+          <span style={{ marginLeft: 4 }}>ヨー[deg]</span>
+        </label>
+        <label style={{ marginLeft: 8 }}>
+          <input
+            type="number"
+            step={0.01}
+            value={offX}
+            onChange={(e) => setOffX(Number(e.target.value) || 0)}
+            className="input-number"
+            aria-label="オフセットX[m]"
+          />
+          <span style={{ marginLeft: 4 }}>offX[m]</span>
+        </label>
+        <label style={{ marginLeft: 8 }}>
+          <input
+            type="number"
+            step={0.01}
+            value={offY}
+            onChange={(e) => setOffY(Number(e.target.value) || 0)}
+            className="input-number"
+            aria-label="オフセットY[m]"
+          />
+          <span style={{ marginLeft: 4 }}>offY[m]</span>
+        </label>
+        <label style={{ marginLeft: 8 }}>
+          <input
+            type="number"
+            step={0.01}
+            value={offZ}
+            onChange={(e) => setOffZ(Number(e.target.value) || 0)}
+            className="input-number"
+            aria-label="オフセットZ[m]"
+          />
+          <span style={{ marginLeft: 4 }}>offZ[m]</span>
+        </label>
+        <button
+          className="btn"
+          style={{ marginLeft: 8 }}
+          onClick={() => {
+            try {
+              window.dispatchEvent(
+                new CustomEvent("motioncast:tracker-set-origin"),
+              );
+            } catch {
+              /* noop */
+            }
+          }}
+        >
+          原点=現在
+        </button>
+        <button
+          className="btn"
+          style={{ marginLeft: 6 }}
+          onClick={() => {
+            try {
+              window.dispatchEvent(
+                new CustomEvent("motioncast:tracker-align-forward"),
+              );
+            } catch {
+              /* noop */
+            }
+          }}
+        >
+          向きを前に
+        </button>
       </div>
       <div className="ipc-row small">
         状態: {sending ? "送信中" : "停止中"} / 宛先 udp://{addr}:{port} @{" "}
