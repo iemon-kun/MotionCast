@@ -142,7 +142,7 @@ export function VrmViewer() {
     };
 
     el.appendChild(renderer.domElement);
-    try { el.setAttribute("data-has-canvas", "true"); } catch {}
+    try { el.setAttribute("data-has-canvas", "true"); } catch { void 0; }
 
     scene.add(new THREE.AmbientLight(0xffffff, 0.4));
     const dir = new THREE.DirectionalLight(0xffffff, 1);
@@ -225,7 +225,7 @@ export function VrmViewer() {
             const sx = x_v.dot(x_m_raw) < 0 ? -1 : 1;
             const sy = y_v.dot(y_m_raw) < 0 ? -1 : 1;
             const x_m = x_m_raw.clone().multiplyScalar(sx);
-            let y_m = y_m_raw.clone().multiplyScalar(sy);
+            const y_m = y_m_raw.clone().multiplyScalar(sy);
             let z_m = new THREE.Vector3().crossVectors(x_m, y_m).normalize();
             y_m.crossVectors(z_m, x_m).normalize();
             if (z_v.dot(z_m) < 0) {
@@ -275,7 +275,6 @@ export function VrmViewer() {
             };
 
             const humanoid = vrm.humanoid;
-            const get = (name: VRMHumanBoneName) => humanoid?.getNormalizedBoneNode(name) || undefined;
             const parentOf = (n?: THREE.Object3D | null) => (n ? (n.parent as THREE.Object3D | null) : null);
             const bones = calib.bones;
             const slerpRest = (node?: THREE.Object3D, qLocal0?: THREE.Quaternion, rate = 0.2) => {
@@ -451,7 +450,7 @@ export function VrmViewer() {
             slerp(b.rLowerArm?.node, b.rLowerArm?.qWorld0, 0.25);
           }
         }
-      } catch {}
+      } catch { void 0; }
       renderer.render(scene, camera);
     };
     animate();
@@ -474,11 +473,11 @@ export function VrmViewer() {
       scene.add(vrm.scene);
       vrmRef.current = vrm;
       setStatus("読み込み完了");
-      try { applySize(); renderer.render(scene, camera); } catch {}
+      try { applySize(); renderer.render(scene, camera); } catch { void 0; }
       try {
         fitCameraToObject(vrm.scene, 1.25);
         renderer.render(scene, camera);
-      } catch {}
+      } catch { void 0; }
       // 骨の初期ワールド姿勢とデフォルト方向をキャッシュ（リラックス基準）
       try {
         const humanoid = vrm.humanoid;
@@ -678,7 +677,7 @@ export function VrmViewer() {
       if (saved && saved !== "未読み込み" && !vrmRef.current) {
         void loadFromURL(`/vrm/${encodeURIComponent(saved)}`);
       }
-    } catch {}
+    } catch { void 0; }
 
     return () => {
       cancelAnimationFrame(raf);
@@ -695,18 +694,21 @@ export function VrmViewer() {
         const dom = renderer.domElement;
         if ((dom as unknown as { isConnected?: boolean }).isConnected) dom.remove();
         else if (dom.parentElement === el) el.removeChild(dom);
-      } catch {}
+      } catch { void 0; }
       try {
         if (cubeRef.current) {
-          try { scene.remove(cubeRef.current); } catch {}
-          try { cubeRef.current.geometry.dispose(); } catch {}
-          try { (cubeRef.current.material as unknown as THREE.Material)?.dispose?.(); } catch {}
+          try { scene.remove(cubeRef.current); } catch { void 0; }
+          try { cubeRef.current.geometry.dispose(); } catch { void 0; }
+          try { (cubeRef.current.material as unknown as THREE.Material)?.dispose?.(); } catch { void 0; }
           cubeRef.current = null;
         }
-      } catch {}
-      try { VRMUtils.deepDispose(vrmRef.current?.scene as any); } catch {}
-      try { renderer.dispose(); } catch {}
+      } catch { void 0; }
+      if (vrmRef.current) {
+        try { VRMUtils.deepDispose(vrmRef.current.scene); } catch { void 0; }
+      }
+      try { renderer.dispose(); } catch { void 0; }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pixelRatioCap]);
 
   // Toggle cube on state change without reinitializing scene
@@ -723,9 +725,9 @@ export function VrmViewer() {
       cubeRef.current = cube;
     } else if (!showCube && cubeRef.current) {
       const cube = cubeRef.current;
-      try { scene.remove(cube); } catch {}
-      try { cube.geometry.dispose(); } catch {}
-      try { (cube.material as unknown as THREE.Material)?.dispose?.(); } catch {}
+      try { scene.remove(cube); } catch { void 0; }
+      try { cube.geometry.dispose(); } catch { void 0; }
+      try { (cube.material as unknown as THREE.Material)?.dispose?.(); } catch { void 0; }
       cubeRef.current = null;
     }
   }, [showCube]);
