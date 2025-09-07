@@ -608,7 +608,11 @@ export function VrmViewer() {
               const dy = u2!.lShoulder.y - u2!.rShoulder.y;
               chestNode.rotation.z = clamp(dy * 1.5, 0.6);
             } else {
-              slerpToRest(chestNode ?? undefined, calib?.bones.chest?.qLocal0, 0.2);
+              slerpToRest(
+                chestNode ?? undefined,
+                calib?.bones.chest?.qLocal0,
+                0.2,
+              );
             }
             if (lUpperArm && u2!.lShoulder && u2!.lElbow) {
               const dx = u2!.lElbow.x - u2!.lShoulder.x;
@@ -618,7 +622,11 @@ export function VrmViewer() {
                 1.0,
               );
             } else {
-              slerpToRest(lUpperArm ?? undefined, calib?.bones.lUpperArm?.qLocal0, 0.2);
+              slerpToRest(
+                lUpperArm ?? undefined,
+                calib?.bones.lUpperArm?.qLocal0,
+                0.2,
+              );
             }
             if (rUpperArm && u2!.rShoulder && u2!.rElbow) {
               const dx = u2!.rElbow.x - u2!.rShoulder.x;
@@ -628,7 +636,11 @@ export function VrmViewer() {
                 1.0,
               );
             } else {
-              slerpToRest(rUpperArm ?? undefined, calib?.bones.rUpperArm?.qLocal0, 0.2);
+              slerpToRest(
+                rUpperArm ?? undefined,
+                calib?.bones.rUpperArm?.qLocal0,
+                0.2,
+              );
             }
             if (lLowerArm && u2!.lShoulder && u2!.lElbow && u2!.lWrist) {
               const ax = u2!.lElbow.x - u2!.lShoulder.x;
@@ -637,7 +649,11 @@ export function VrmViewer() {
               const by = u2!.lWrist.y - u2!.lElbow.y;
               lLowerArm.rotation.x = clamp(-angleBetween(ax, ay, bx, by), 1.2);
             } else {
-              slerpToRest(lLowerArm ?? undefined, calib?.bones.lLowerArm?.qLocal0, 0.25);
+              slerpToRest(
+                lLowerArm ?? undefined,
+                calib?.bones.lLowerArm?.qLocal0,
+                0.25,
+              );
             }
             if (rLowerArm && u2!.rShoulder && u2!.rElbow && u2!.rWrist) {
               const ax = u2!.rElbow.x - u2!.rShoulder.x;
@@ -646,7 +662,11 @@ export function VrmViewer() {
               const by = u2!.rWrist.y - u2!.rElbow.y;
               rLowerArm.rotation.x = clamp(-angleBetween(ax, ay, bx, by), 1.2);
             } else {
-              slerpToRest(rLowerArm ?? undefined, calib?.bones.rLowerArm?.qLocal0, 0.25);
+              slerpToRest(
+                rLowerArm ?? undefined,
+                calib?.bones.rLowerArm?.qLocal0,
+                0.25,
+              );
             }
           } else if (calib && vrm2) {
             // Relax towards rest pose when no recent data
