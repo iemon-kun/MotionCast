@@ -100,9 +100,11 @@ export function VrmViewer() {
       void 0;
     }
   }, [debugMapping]);
-  const diagRef = useRef<{ samples: number; mismY: number; near180: number }>(
-    { samples: 0, mismY: 0, near180: 0 },
-  );
+  const diagRef = useRef<{ samples: number; mismY: number; near180: number }>({
+    samples: 0,
+    mismY: 0,
+    near180: 0,
+  });
   const lastDiagAtRef = useRef<number>(0);
   // per-bone sign hysteresis map
   const boneSignRef = useRef<Map<string, number>>(new Map());
@@ -475,19 +477,23 @@ export function VrmViewer() {
             // Choose a combination of 180deg flips around VRM trunk axes to minimize
             // the angle between mapped MP directions and VRM bone initial directions.
             // Cache the chosen flip until recalibration.
-            const qFlipCacheRef = (restRef as unknown as {
+            const qFlipCacheRef = restRef as unknown as {
               current: (typeof calibRef)["current"] & {
                 _qMapFlip?: THREE.Quaternion | null;
               };
-            });
-            if (qFlipCacheRef.current && qFlipCacheRef.current._qMapFlip === undefined) {
+            };
+            if (
+              qFlipCacheRef.current &&
+              qFlipCacheRef.current._qMapFlip === undefined
+            ) {
               qFlipCacheRef.current._qMapFlip = null;
             }
             const chooseFlipIfNeeded = () => {
               if (!qFlipCacheRef.current) return;
               if (qFlipCacheRef.current._qMapFlip) return; // already chosen
               // Need both arms visible to choose reliably
-              const vOK = (p?: { v?: number }) => typeof p?.v === "number" && (p!.v as number) >= 0.3;
+              const vOK = (p?: { v?: number }) =>
+                typeof p?.v === "number" && (p!.v as number) >= 0.3;
               const haveL = vOK(u3.lShoulder) && vOK(u3.lElbow);
               const haveR = vOK(u3.rShoulder) && vOK(u3.rElbow);
               if (!haveL && !haveR) return;
@@ -503,7 +509,9 @@ export function VrmViewer() {
               flips.push(qRx.clone().multiply(qRy.clone()));
               flips.push(qRy.clone().multiply(qRz.clone()));
               flips.push(qRz.clone().multiply(qRx.clone()));
-              flips.push(qRx.clone().multiply(qRy.clone()).multiply(qRz.clone()));
+              flips.push(
+                qRx.clone().multiply(qRy.clone()).multiply(qRz.clone()),
+              );
 
               const costFor = (qFlip: THREE.Quaternion) => {
                 const mapQ = q_map_base.clone().multiply(qFlip);
@@ -515,19 +523,35 @@ export function VrmViewer() {
                   d0?: THREE.Vector3,
                 ) => {
                   if (!sh || !el || !d0) return;
-                  const mpDir = new THREE.Vector3(el.x - sh.x, el.y - sh.y, el.z - sh.z).normalize();
-                  const vrmDir = mpDir.clone().applyQuaternion(mapQ).normalize();
+                  const mpDir = new THREE.Vector3(
+                    el.x - sh.x,
+                    el.y - sh.y,
+                    el.z - sh.z,
+                  ).normalize();
+                  const vrmDir = mpDir
+                    .clone()
+                    .applyQuaternion(mapQ)
+                    .normalize();
                   const d0n = d0.clone().normalize();
-                  const d0Used = d0n.dot(vrmDir) < 0 ? d0n.clone().multiplyScalar(-1) : d0n;
+                  const d0Used =
+                    d0n.dot(vrmDir) < 0 ? d0n.clone().multiplyScalar(-1) : d0n;
                   const dot = Math.max(-1, Math.min(1, d0Used.dot(vrmDir)));
                   const ang = Math.acos(dot);
                   cost += ang;
                   cnt += 1;
                 };
                 if (haveL)
-                  evalArm(u3.lShoulder, u3.lElbow, calib.bones.lUpperArm?.dirWorld0);
+                  evalArm(
+                    u3.lShoulder,
+                    u3.lElbow,
+                    calib.bones.lUpperArm?.dirWorld0,
+                  );
                 if (haveR)
-                  evalArm(u3.rShoulder, u3.rElbow, calib.bones.rUpperArm?.dirWorld0);
+                  evalArm(
+                    u3.rShoulder,
+                    u3.rElbow,
+                    calib.bones.rUpperArm?.dirWorld0,
+                  );
                 return cnt > 0 ? cost / cnt : Number.POSITIVE_INFINITY;
               };
               let best: THREE.Quaternion | null = null;
@@ -547,7 +571,10 @@ export function VrmViewer() {
             if (chosen) q_map.multiply(chosen);
             // デバッグ: 上下反転検証用（必要時にUIからON）
             if (invertUpperYRef.current) {
-              const q_invY = new THREE.Quaternion().setFromAxisAngle(y_v, Math.PI);
+              const q_invY = new THREE.Quaternion().setFromAxisAngle(
+                y_v,
+                Math.PI,
+              );
               q_map.multiply(q_invY);
             }
             // Dynamic pole (VRM world): MP胸の前方向 z_m をVRM空間へ写像
@@ -579,7 +606,7 @@ export function VrmViewer() {
               // Aim: choose source direction sign to avoid near-180 flips
               const d0 = bone.dirWorld0.clone().normalize();
               const key = opts?.signKey || "";
-              const prev = key ? boneSignRef.current.get(key) ?? 1 : 1;
+              const prev = key ? (boneSignRef.current.get(key) ?? 1) : 1;
               let cur = prev;
               let d0Used = d0.clone().multiplyScalar(cur);
               if (d0Used.dot(dir_v) < -0.2) {
@@ -594,17 +621,24 @@ export function VrmViewer() {
                 axisAim = new THREE.Vector3(1, 0, 0);
                 angleAim = 0;
               } else if (dotAim < -0.9995) {
-                const prefer = (opts?.pole && opts.pole.lengthSq() > 1e-6)
-                  ? opts.pole.clone().normalize()
-                  : new THREE.Vector3(0, 1, 0);
+                const prefer =
+                  opts?.pole && opts.pole.lengthSq() > 1e-6
+                    ? opts.pole.clone().normalize()
+                    : new THREE.Vector3(0, 1, 0);
                 if (Math.abs(d0Used.dot(prefer)) > 0.9) prefer.set(1, 0, 0);
-                axisAim = new THREE.Vector3().crossVectors(d0Used, prefer).normalize();
+                axisAim = new THREE.Vector3()
+                  .crossVectors(d0Used, prefer)
+                  .normalize();
                 angleAim = Math.PI;
               } else {
-                axisAim = new THREE.Vector3().crossVectors(d0Used, dir_v).normalize();
+                axisAim = new THREE.Vector3()
+                  .crossVectors(d0Used, dir_v)
+                  .normalize();
                 angleAim = Math.acos(dotAim);
               }
-              let ang = clamp ? Math.max(clamp.min, Math.min(clamp.max, angleAim)) : angleAim;
+              let ang = clamp
+                ? Math.max(clamp.min, Math.min(clamp.max, angleAim))
+                : angleAim;
 
               // Lower arm: hinge constraint around right0 axis
               if (opts?.mode === "lower") {
@@ -617,17 +651,28 @@ export function VrmViewer() {
                 const sgn = Math.sign(right0.dot(axisAim)) || 1;
                 axisAim = right0;
                 ang *= sgn;
-                ang = clamp ? Math.max(clamp.min, Math.min(clamp.max, ang)) : ang;
+                ang = clamp
+                  ? Math.max(clamp.min, Math.min(clamp.max, ang))
+                  : ang;
               }
 
-              const q_align = new THREE.Quaternion().setFromAxisAngle(axisAim, ang);
+              const q_align = new THREE.Quaternion().setFromAxisAngle(
+                axisAim,
+                ang,
+              );
               const q_world_target = bone.qWorld0.clone().premultiply(q_align);
 
               // Upper arm: twist stabilize with pole
               if (opts?.mode === "upper" && opts.pole) {
-                const up0 = new THREE.Vector3(0, 1, 0).applyQuaternion(bone.qWorld0).normalize();
-                const upAfter = up0.clone().applyQuaternion(new THREE.Quaternion().copy(q_align));
-                const n = new THREE.Vector3().crossVectors(dir_v, opts.pole.clone().normalize()).normalize();
+                const up0 = new THREE.Vector3(0, 1, 0)
+                  .applyQuaternion(bone.qWorld0)
+                  .normalize();
+                const upAfter = up0
+                  .clone()
+                  .applyQuaternion(new THREE.Quaternion().copy(q_align));
+                const n = new THREE.Vector3()
+                  .crossVectors(dir_v, opts.pole.clone().normalize())
+                  .normalize();
                 if (n.lengthSq() > 1e-6 && upAfter.lengthSq() > 1e-6) {
                   const c = Math.max(-1, Math.min(1, upAfter.dot(n)));
                   const angTwist = Math.acos(c);
@@ -655,7 +700,8 @@ export function VrmViewer() {
               n ? (n.parent as THREE.Object3D | null) : null;
             const bones = calib.bones;
             // 可視性チェック: v>=0.3 のときのみ適用
-            const visOk = (p?: { v?: number }) => !!p && typeof p.v === "number" && p.v >= 0.3;
+            const visOk = (p?: { v?: number }) =>
+              !!p && typeof p.v === "number" && p.v >= 0.3;
             const slerpRest = (
               node?: THREE.Object3D,
               qLocal0?: THREE.Quaternion,
@@ -693,9 +739,13 @@ export function VrmViewer() {
                     u3.lElbow.y - u3.lShoulder.y,
                     u3.lElbow.z - u3.lShoulder.z,
                   ).normalize();
-                  const vrmDir = mpDir.clone().applyQuaternion(q_map).normalize();
+                  const vrmDir = mpDir
+                    .clone()
+                    .applyQuaternion(q_map)
+                    .normalize();
                   const d0 = bones.lUpperArm.dirWorld0.clone().normalize();
-                  const d0Used = d0.dot(vrmDir) < 0 ? d0.clone().multiplyScalar(-1) : d0;
+                  const d0Used =
+                    d0.dot(vrmDir) < 0 ? d0.clone().multiplyScalar(-1) : d0;
                   const dotU = Math.max(-1, Math.min(1, d0Used.dot(vrmDir)));
                   const ySignMismatch =
                     Math.sign(d0Used.y || 0) * Math.sign(vrmDir.y || 0) < 0;
@@ -727,16 +777,17 @@ export function VrmViewer() {
                 new THREE.Vector3(u3.lElbow.x, u3.lElbow.y, u3.lElbow.z),
                 0.35,
                 { min: 0, max: 2.1 },
-                { mode: "upper", pole: pole_dyn, twistStrength: 0.2, signKey: "lUpper" },
+                {
+                  mode: "upper",
+                  pole: pole_dyn,
+                  twistStrength: 0.2,
+                  signKey: "lUpper",
+                },
               );
             } else {
               slerpRest(bones.lUpperArm?.node, bones.lUpperArm?.qLocal0, 0.2);
             }
-            if (
-              bones.rUpperArm &&
-              visOk(u3.rShoulder) &&
-              visOk(u3.rElbow)
-            ) {
+            if (bones.rUpperArm && visOk(u3.rShoulder) && visOk(u3.rElbow)) {
               applyBone(
                 bones.rUpperArm,
                 parentOf(bones.rUpperArm.node),
@@ -748,16 +799,17 @@ export function VrmViewer() {
                 new THREE.Vector3(u3.rElbow.x, u3.rElbow.y, u3.rElbow.z),
                 0.35,
                 { min: 0, max: 2.1 },
-                { mode: "upper", pole: pole_dyn, twistStrength: 0.2, signKey: "rUpper" },
+                {
+                  mode: "upper",
+                  pole: pole_dyn,
+                  twistStrength: 0.2,
+                  signKey: "rUpper",
+                },
               );
             } else {
               slerpRest(bones.rUpperArm?.node, bones.rUpperArm?.qLocal0, 0.2);
             }
-            if (
-              bones.lLowerArm &&
-              visOk(u3.lElbow) &&
-              visOk(u3.lWrist)
-            ) {
+            if (bones.lLowerArm && visOk(u3.lElbow) && visOk(u3.lWrist)) {
               applyBone(
                 bones.lLowerArm,
                 parentOf(bones.lLowerArm.node),
@@ -770,11 +822,7 @@ export function VrmViewer() {
             } else {
               slerpRest(bones.lLowerArm?.node, bones.lLowerArm?.qLocal0, 0.25);
             }
-            if (
-              bones.rLowerArm &&
-              visOk(u3.rElbow) &&
-              visOk(u3.rWrist)
-            ) {
+            if (bones.rLowerArm && visOk(u3.rElbow) && visOk(u3.rWrist)) {
               applyBone(
                 bones.rLowerArm,
                 parentOf(bones.rLowerArm.node),

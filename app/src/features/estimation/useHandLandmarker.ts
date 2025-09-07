@@ -10,7 +10,13 @@ type MPModuleLite = {
 export type HandWorld = {
   handed: "Left" | "Right";
   world: Array<{ x: number; y: number; z: number }>;
-  curls: { thumb: number; index: number; middle: number; ring: number; pinky: number };
+  curls: {
+    thumb: number;
+    index: number;
+    middle: number;
+    ring: number;
+    pinky: number;
+  };
   wrist?: { x: number; y: number; z: number };
   ts: number;
 };
@@ -19,7 +25,10 @@ function norm(v: { x: number; y: number; z: number }) {
   const l = Math.hypot(v.x, v.y, v.z) || 1;
   return { x: v.x / l, y: v.y / l, z: v.z / l };
 }
-function sub(a: { x: number; y: number; z: number }, b: { x: number; y: number; z: number }) {
+function sub(
+  a: { x: number; y: number; z: number },
+  b: { x: number; y: number; z: number },
+) {
   return { x: a.x - b.x, y: a.y - b.y, z: a.z - b.z };
 }
 function clamp01(x: number) {
@@ -78,7 +87,9 @@ export function useHandLandmarker(enabled: boolean, fps = 30) {
         handRef.current = hand;
         setLoaded(true);
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Handsの読み込みに失敗しました");
+        setError(
+          e instanceof Error ? e.message : "Handsの読み込みに失敗しました",
+        );
       }
     })();
     return () => {
@@ -119,7 +130,9 @@ export function useHandLandmarker(enabled: boolean, fps = 30) {
         ) => {
           worldLandmarks?: Array<Array<{ x: number; y: number; z: number }>>;
           landmarks?: Array<Array<{ x: number; y: number; z: number }>>;
-          handednesses?: Array<{ categories: { categoryName: string; score: number }[] }>;
+          handednesses?: Array<{
+            categories: { categoryName: string; score: number }[];
+          }>;
         };
       };
       if (!video || !lk) return;
@@ -130,7 +143,9 @@ export function useHandLandmarker(enabled: boolean, fps = 30) {
       try {
         const res = lk.detectForVideo(video, ts) as unknown as {
           worldLandmarks?: Array<Array<{ x: number; y: number; z: number }>>;
-          handednesses?: Array<{ categories: { categoryName: string; score: number }[] }>;
+          handednesses?: Array<{
+            categories: { categoryName: string; score: number }[];
+          }>;
         };
         const wls = res?.worldLandmarks ?? [];
         const handeds = res?.handednesses ?? [];
@@ -144,16 +159,21 @@ export function useHandLandmarker(enabled: boolean, fps = 30) {
           // angle between (b-a) and (c-b)
           const v1 = norm(sub(pts[b], pts[a]));
           const v2 = norm(sub(pts[c], pts[b]));
-          const dot = Math.max(-1, Math.min(1, v1.x * v2.x + v1.y * v2.y + v1.z * v2.z));
+          const dot = Math.max(
+            -1,
+            Math.min(1, v1.x * v2.x + v1.y * v2.y + v1.z * v2.z),
+          );
           const ang = Math.acos(dot);
           // normalize ~ [0..1] where 0=open,1=fully curled (~120deg)
-          return clamp01(ang / (Math.PI * 2 / 3));
+          return clamp01(ang / ((Math.PI * 2) / 3));
         };
         for (let i = 0; i < wls.length; i++) {
           const pts = wls[i] || [];
           if (pts.length < 21) continue;
           const handed =
-            handeds[i]?.categories?.[0]?.categoryName === "Left" ? "Left" : "Right";
+            handeds[i]?.categories?.[0]?.categoryName === "Left"
+              ? "Left"
+              : "Right";
           const curls = {
             thumb: curlOf(pts, 2, 3, 4),
             index: curlOf(pts, 5, 6, 8),
@@ -161,7 +181,13 @@ export function useHandLandmarker(enabled: boolean, fps = 30) {
             ring: curlOf(pts, 13, 14, 16),
             pinky: curlOf(pts, 17, 18, 20),
           };
-          hands.push({ handed, world: pts.slice(0, 21), curls, wrist: pts[0], ts });
+          hands.push({
+            handed,
+            world: pts.slice(0, 21),
+            curls,
+            wrist: pts[0],
+            ts,
+          });
         }
         if (hands.length) {
           try {

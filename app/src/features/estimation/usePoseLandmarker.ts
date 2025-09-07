@@ -227,9 +227,7 @@ export function usePoseLandmarker(enabled: boolean, fps = 15) {
             const vis3 = (p as { visibility?: number } | undefined)?.visibility;
             if (typeof vis3 === "number") v = vis3;
             else {
-              const f2 = first?.[i] as
-                | { visibility?: number }
-                | undefined;
+              const f2 = first?.[i] as { visibility?: number } | undefined;
               if (typeof f2?.visibility === "number") v = f2.visibility;
             }
             return { x: p.x, y: p.y, z: p.z, v };

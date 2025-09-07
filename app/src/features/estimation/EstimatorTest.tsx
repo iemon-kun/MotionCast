@@ -62,12 +62,19 @@ export function EstimatorTest() {
       const ce = ev as CustomEvent<
         Array<{
           handed: "Left" | "Right";
-          curls: { thumb: number; index: number; middle: number; ring: number; pinky: number };
+          curls: {
+            thumb: number;
+            index: number;
+            middle: number;
+            ring: number;
+            pinky: number;
+          };
         }>
       >;
       const hands = ce.detail || [];
       const avg = (o: { [k: string]: number }) =>
-        Object.values(o).reduce((a, b) => a + b, 0) / Math.max(1, Object.keys(o).length);
+        Object.values(o).reduce((a, b) => a + b, 0) /
+        Math.max(1, Object.keys(o).length);
       const L = hands.find((h) => h.handed === "Left");
       const R = hands.find((h) => h.handed === "Right");
       setHandInfo(
@@ -76,7 +83,10 @@ export function EstimatorTest() {
     };
     window.addEventListener("motioncast:hands-3d", onHands as EventListener);
     return () =>
-      window.removeEventListener("motioncast:hands-3d", onHands as EventListener);
+      window.removeEventListener(
+        "motioncast:hands-3d",
+        onHands as EventListener,
+      );
   }, [useHands]);
 
   return (

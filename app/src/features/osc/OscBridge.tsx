@@ -159,16 +159,13 @@ export function OscBridge() {
   });
   const rafRef = useRef<number>(0);
   // Calibration (basis/scale)
-  const calibRef = useRef<
-    | null
-    | {
-        origin: { x: number; y: number; z: number };
-        x: { x: number; y: number; z: number };
-        y: { x: number; y: number; z: number };
-        z: { x: number; y: number; z: number };
-        scale: number;
-      }
-  >(null);
+  const calibRef = useRef<null | {
+    origin: { x: number; y: number; z: number };
+    x: { x: number; y: number; z: number };
+    y: { x: number; y: number; z: number };
+    z: { x: number; y: number; z: number };
+    scale: number;
+  }>(null);
   const shoulderTargetRef = useRef<number>(0.38);
 
   useEffect(() => {
@@ -221,7 +218,11 @@ export function OscBridge() {
         const cross = (
           a: { x: number; y: number; z: number },
           b: { x: number; y: number; z: number },
-        ) => ({ x: a.y * b.z - a.z * b.y, y: a.z * b.x - a.x * b.z, z: a.x * b.y - a.y * b.x });
+        ) => ({
+          x: a.y * b.z - a.z * b.y,
+          y: a.z * b.x - a.x * b.z,
+          z: a.x * b.y - a.y * b.x,
+        });
         const x = norm(vx);
         let y = norm(vym);
         const z = norm(cross(x, y));
@@ -376,12 +377,18 @@ export function OscBridge() {
                   z: u3.rWrist!.z,
                 }
               : undefined;
-            const applyCalib = (
-              v?: { x: number; y: number; z: number },
-            ): { x: number; y: number; z: number } | undefined => {
+            const applyCalib = (v?: {
+              x: number;
+              y: number;
+              z: number;
+            }): { x: number; y: number; z: number } | undefined => {
               const C = calibRef.current;
               if (!v || !C) return v;
-              const rel = { x: v.x - C.origin.x, y: v.y - C.origin.y, z: v.z - C.origin.z };
+              const rel = {
+                x: v.x - C.origin.x,
+                y: v.y - C.origin.y,
+                z: v.z - C.origin.z,
+              };
               const dot = (
                 a: { x: number; y: number; z: number },
                 b: { x: number; y: number; z: number },
@@ -400,9 +407,11 @@ export function OscBridge() {
             const s = Math.sin(yaw);
             const c = Math.cos(yaw);
             const off = offsetRef.current;
-            const rotT = (
-              v?: { x: number; y: number; z: number },
-            ): { x: number; y: number; z: number } | undefined => {
+            const rotT = (v?: {
+              x: number;
+              y: number;
+              z: number;
+            }): { x: number; y: number; z: number } | undefined => {
               if (!v) return v;
               const xr = v.x * c + v.z * s;
               const zr = -v.x * s + v.z * c;
@@ -591,36 +600,42 @@ export function OscBridge() {
           const r_wrist = visOk(u3.rWrist)
             ? { x: u3.rWrist!.x, y: u3.rWrist!.y, z: u3.rWrist!.z }
             : undefined;
-            const applyCalib = (
-              v?: { x: number; y: number; z: number },
-            ): { x: number; y: number; z: number } | undefined => {
-              const C = calibRef.current;
-              if (!v || !C) return v;
-              const rel = { x: v.x - C.origin.x, y: v.y - C.origin.y, z: v.z - C.origin.z };
-              const dot = (
-                a: { x: number; y: number; z: number },
-                b: { x: number; y: number; z: number },
-              ) => a.x * b.x + a.y * b.y + a.z * b.z;
-              const ax = dot(rel, C.x);
-              const ay = dot(rel, C.y);
-              const az = dot(rel, C.z);
-              return { x: ax * C.scale, y: ay * C.scale, z: az * C.scale };
+          const applyCalib = (v?: {
+            x: number;
+            y: number;
+            z: number;
+          }): { x: number; y: number; z: number } | undefined => {
+            const C = calibRef.current;
+            if (!v || !C) return v;
+            const rel = {
+              x: v.x - C.origin.x,
+              y: v.y - C.origin.y,
+              z: v.z - C.origin.z,
             };
-            const tHead = applyCalib(head);
-            const tChest = applyCalib(chest);
-            const tHips = applyCalib(hips);
-            const tLWrist = applyCalib(l_wrist);
-            const tRWrist = applyCalib(r_wrist);
-            invoke("osc_update_trackers", {
-              trackers: {
-                head: tHead ?? head,
-                chest: tChest ?? chest,
-                hips: tHips ?? hips,
-                l_wrist: tLWrist ?? l_wrist,
-                r_wrist: tRWrist ?? r_wrist,
-              },
-            }).catch(() => {});
-          }
+            const dot = (
+              a: { x: number; y: number; z: number },
+              b: { x: number; y: number; z: number },
+            ) => a.x * b.x + a.y * b.y + a.z * b.z;
+            const ax = dot(rel, C.x);
+            const ay = dot(rel, C.y);
+            const az = dot(rel, C.z);
+            return { x: ax * C.scale, y: ay * C.scale, z: az * C.scale };
+          };
+          const tHead = applyCalib(head);
+          const tChest = applyCalib(chest);
+          const tHips = applyCalib(hips);
+          const tLWrist = applyCalib(l_wrist);
+          const tRWrist = applyCalib(r_wrist);
+          invoke("osc_update_trackers", {
+            trackers: {
+              head: tHead ?? head,
+              chest: tChest ?? chest,
+              hips: tHips ?? hips,
+              l_wrist: tLWrist ?? l_wrist,
+              r_wrist: tRWrist ?? r_wrist,
+            },
+          }).catch(() => {});
+        }
       }
       // Metrics accumulation & publish (1Hz)
       if (metricsEnabledRef.current) {

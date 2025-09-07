@@ -354,7 +354,9 @@ export function OscTest() {
         >
           <option value="minimal">minimal</option>
           <option value="cluster">cluster-basic</option>
-          <option value="vrchat">vrchat (OSC trackers: head rot + chest/hips/wrists pos)</option>
+          <option value="vrchat">
+            vrchat (OSC trackers: head rot + chest/hips/wrists pos)
+          </option>
           <option value="mc-upper">mc-upper (head+face+upper-body quat)</option>
           <option value="vmc">vmc (/VMC/Ext/Bone/Pos subset)</option>
         </select>
@@ -395,7 +397,9 @@ export function OscTest() {
             step={0.01}
             value={shoulderWidthM}
             onChange={(e) =>
-              setShoulderWidthM(Math.max(0.2, Math.min(0.8, Number(e.target.value) || 0)))
+              setShoulderWidthM(
+                Math.max(0.2, Math.min(0.8, Number(e.target.value) || 0)),
+              )
             }
             className="input-number"
             aria-label="肩幅(メートル)"
@@ -469,7 +473,9 @@ export function OscTest() {
           style={{ marginLeft: 8 }}
           onClick={() => {
             try {
-              window.dispatchEvent(new CustomEvent("motioncast:tracker-set-origin"));
+              window.dispatchEvent(
+                new CustomEvent("motioncast:tracker-set-origin"),
+              );
             } catch {
               /* noop */
             }
@@ -482,7 +488,9 @@ export function OscTest() {
           style={{ marginLeft: 6 }}
           onClick={() => {
             try {
-              window.dispatchEvent(new CustomEvent("motioncast:tracker-align-forward"));
+              window.dispatchEvent(
+                new CustomEvent("motioncast:tracker-align-forward"),
+              );
             } catch {
               /* noop */
             }
