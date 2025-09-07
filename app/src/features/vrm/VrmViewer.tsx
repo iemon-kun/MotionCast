@@ -11,6 +11,7 @@ export function VrmViewer() {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const vrmRef = useRef<VRM | null>(null);
   const [status, setStatus] = useState<string>("未読み込み");
+  const baseStatusRef = useRef<string>("未読み込み");
   const [running, setRunning] = useState<boolean>(() => {
     try {
       const raw = localStorage.getItem("viewer.running");
@@ -39,6 +40,77 @@ export function VrmViewer() {
   useEffect(() => {
     invertPitchRef.current = invertChestPitch;
   }, [invertChestPitch]);
+  // 検証用トグル（3D専用/胸補正/手動フリップ）
+  const [threeDOnly, setThreeDOnly] = useState<boolean>(() => {
+    try {
+      const v = localStorage.getItem("viewer.threeDOnly");
+      return v == null ? false : v !== "false";
+    } catch {
+      return false;
+    }
+  });
+  const [chestAdjust, setChestAdjust] = useState<boolean>(() => {
+    try {
+      const v = localStorage.getItem("viewer.chestAdjust");
+      return v == null ? true : v !== "false";
+    } catch {
+      return true;
+    }
+  });
+  const [flipSelect, setFlipSelect] = useState<string>(() => {
+    try {
+      return localStorage.getItem("viewer.flip") || "auto";
+    } catch {
+      return "auto";
+    }
+  });
+  // デバッグ: 上下反転/マッピング診断をUIから切替
+  const [invertUpperY, setInvertUpperY] = useState<boolean>(() => {
+    try {
+      const v = localStorage.getItem("viewer.invertUpperY");
+      // 既定: ON（直感に合う上下方向に補正）
+      return v == null ? true : v !== "false";
+    } catch {
+      return true;
+    }
+  });
+  const invertUpperYRef = useRef<boolean>(false);
+  useEffect(() => {
+    invertUpperYRef.current = invertUpperY;
+    try {
+      localStorage.setItem("viewer.invertUpperY", String(invertUpperY));
+    } catch {
+      void 0;
+    }
+  }, [invertUpperY]);
+  const [debugMapping, setDebugMapping] = useState<boolean>(() => {
+    try {
+      const v = localStorage.getItem("viewer.debugMapping");
+      return v == null ? false : v !== "false";
+    } catch {
+      return false;
+    }
+  });
+  const debugMappingRef = useRef<boolean>(false);
+  useEffect(() => {
+    debugMappingRef.current = debugMapping;
+    try {
+      localStorage.setItem("viewer.debugMapping", String(debugMapping));
+    } catch {
+      void 0;
+    }
+  }, [debugMapping]);
+  const diagRef = useRef<{ samples: number; mismY: number; near180: number }>(
+    { samples: 0, mismY: 0, near180: 0 },
+  );
+  const lastDiagAtRef = useRef<number>(0);
+  // per-bone sign hysteresis map
+  const boneSignRef = useRef<Map<string, number>>(new Map());
+  // 2D/3D 受信フレームの簡易カウンタ（1秒レポート）
+  const f3Ref = useRef<number>(0);
+  const f2Ref = useRef<number>(0);
+  const lastReportRef = useRef<number>(0);
+  // 上記に統合済み
   const [showCube, setShowCube] = useState<boolean>(() => {
     try {
       const s = localStorage.getItem("viewer.showCube");
@@ -145,8 +217,10 @@ export function VrmViewer() {
     const el = containerRef.current;
     if (!el) return;
 
-    // Clean container to avoid duplicate canvases
-    while (el.firstChild) el.removeChild(el.firstChild);
+    // Avoid duplicating canvas: only append if not already present
+    const hasCanvas = Array.from(el.childNodes).some(
+      (n) => (n as HTMLElement)?.tagName === "CANVAS",
+    );
 
     const scene = new THREE.Scene();
     sceneRef.current = scene;
@@ -197,7 +271,7 @@ export function VrmViewer() {
       camera.updateProjectionMatrix();
     };
 
-    el.appendChild(renderer.domElement);
+    if (!hasCanvas) el.appendChild(renderer.domElement);
     try {
       el.setAttribute("data-has-canvas", "true");
     } catch {
@@ -394,9 +468,90 @@ export function VrmViewer() {
             }
             const m_m = new THREE.Matrix4().makeBasis(x_m, y_m, z_m);
             const q_m = new THREE.Quaternion().setFromRotationMatrix(m_m);
-            const q_map = calib.trunkQuatVRM
+            const q_map_base = calib.trunkQuatVRM
               .clone()
-              .multiply(q_m.clone().invert()); // MP -> VRM world
+              .multiply(q_m.clone().invert()); // MP -> VRM world (base)
+            // ---- Auto flip resolver (one-shot) ----
+            // Choose a combination of 180deg flips around VRM trunk axes to minimize
+            // the angle between mapped MP directions and VRM bone initial directions.
+            // Cache the chosen flip until recalibration.
+            const qFlipCacheRef = (restRef as unknown as {
+              current: (typeof calibRef)["current"] & {
+                _qMapFlip?: THREE.Quaternion | null;
+              };
+            });
+            if (qFlipCacheRef.current && qFlipCacheRef.current._qMapFlip === undefined) {
+              qFlipCacheRef.current._qMapFlip = null;
+            }
+            const chooseFlipIfNeeded = () => {
+              if (!qFlipCacheRef.current) return;
+              if (qFlipCacheRef.current._qMapFlip) return; // already chosen
+              // Need both arms visible to choose reliably
+              const vOK = (p?: { v?: number }) => typeof p?.v === "number" && (p!.v as number) >= 0.3;
+              const haveL = vOK(u3.lShoulder) && vOK(u3.lElbow);
+              const haveR = vOK(u3.rShoulder) && vOK(u3.rElbow);
+              if (!haveL && !haveR) return;
+              const flips: THREE.Quaternion[] = [];
+              const qI = new THREE.Quaternion();
+              const qRx = new THREE.Quaternion().setFromAxisAngle(x_v, Math.PI);
+              const qRy = new THREE.Quaternion().setFromAxisAngle(y_v, Math.PI);
+              const qRz = new THREE.Quaternion().setFromAxisAngle(z_v, Math.PI);
+              flips.push(qI);
+              flips.push(qRx.clone());
+              flips.push(qRy.clone());
+              flips.push(qRz.clone());
+              flips.push(qRx.clone().multiply(qRy.clone()));
+              flips.push(qRy.clone().multiply(qRz.clone()));
+              flips.push(qRz.clone().multiply(qRx.clone()));
+              flips.push(qRx.clone().multiply(qRy.clone()).multiply(qRz.clone()));
+
+              const costFor = (qFlip: THREE.Quaternion) => {
+                const mapQ = q_map_base.clone().multiply(qFlip);
+                let cost = 0;
+                let cnt = 0;
+                const evalArm = (
+                  sh?: { x: number; y: number; z: number },
+                  el?: { x: number; y: number; z: number },
+                  d0?: THREE.Vector3,
+                ) => {
+                  if (!sh || !el || !d0) return;
+                  const mpDir = new THREE.Vector3(el.x - sh.x, el.y - sh.y, el.z - sh.z).normalize();
+                  const vrmDir = mpDir.clone().applyQuaternion(mapQ).normalize();
+                  const d0n = d0.clone().normalize();
+                  const d0Used = d0n.dot(vrmDir) < 0 ? d0n.clone().multiplyScalar(-1) : d0n;
+                  const dot = Math.max(-1, Math.min(1, d0Used.dot(vrmDir)));
+                  const ang = Math.acos(dot);
+                  cost += ang;
+                  cnt += 1;
+                };
+                if (haveL)
+                  evalArm(u3.lShoulder, u3.lElbow, calib.bones.lUpperArm?.dirWorld0);
+                if (haveR)
+                  evalArm(u3.rShoulder, u3.rElbow, calib.bones.rUpperArm?.dirWorld0);
+                return cnt > 0 ? cost / cnt : Number.POSITIVE_INFINITY;
+              };
+              let best: THREE.Quaternion | null = null;
+              let bestCost = Number.POSITIVE_INFINITY;
+              for (const f of flips) {
+                const c = costFor(f);
+                if (c < bestCost) {
+                  bestCost = c;
+                  best = f.clone();
+                }
+              }
+              qFlipCacheRef.current._qMapFlip = best ?? null;
+            };
+            chooseFlipIfNeeded();
+            let q_map = q_map_base.clone();
+            const chosen = qFlipCacheRef.current?._qMapFlip;
+            if (chosen) q_map.multiply(chosen);
+            // デバッグ: 上下反転検証用（必要時にUIからON）
+            if (invertUpperYRef.current) {
+              const q_invY = new THREE.Quaternion().setFromAxisAngle(y_v, Math.PI);
+              q_map.multiply(q_invY);
+            }
+            // Dynamic pole (VRM world): MP胸の前方向 z_m をVRM空間へ写像
+            const pole_dyn = z_m.clone().applyQuaternion(q_map).normalize();
 
             const calcAxisAngle = (a: THREE.Vector3, b: THREE.Vector3) => {
               const an = a.clone().normalize();
@@ -428,19 +583,81 @@ export function VrmViewer() {
               targetB: THREE.Vector3,
               smooth = 0.35,
               clamp?: { min: number; max: number },
+              opts?: {
+                mode?: "upper" | "lower";
+                pole?: THREE.Vector3;
+                twistStrength?: number;
+                signKey?: string;
+              },
             ) => {
               const dir_m = new THREE.Vector3().subVectors(targetB, targetA);
               if (dir_m.lengthSq() < 1e-6) return;
-              const dir_v = dir_m.applyQuaternion(q_map);
-              const { axis, angle } = calcAxisAngle(bone.dirWorld0, dir_v);
-              const ang = clamp
-                ? Math.max(clamp.min, Math.min(clamp.max, angle))
-                : angle;
-              const q_align = new THREE.Quaternion().setFromAxisAngle(
-                axis,
-                ang,
-              );
+              const dir_v = dir_m.applyQuaternion(q_map).normalize();
+              // Aim: choose source direction sign to avoid near-180 flips
+              const d0 = bone.dirWorld0.clone().normalize();
+              const key = opts?.signKey || "";
+              const prev = key ? boneSignRef.current.get(key) ?? 1 : 1;
+              let cur = prev;
+              let d0Used = d0.clone().multiplyScalar(cur);
+              if (d0Used.dot(dir_v) < -0.2) {
+                cur = -cur;
+                d0Used = d0.clone().multiplyScalar(cur);
+              }
+              if (key) boneSignRef.current.set(key, cur);
+              const dotAim = Math.max(-1, Math.min(1, d0Used.dot(dir_v)));
+              let axisAim: THREE.Vector3;
+              let angleAim: number;
+              if (dotAim > 0.9995) {
+                axisAim = new THREE.Vector3(1, 0, 0);
+                angleAim = 0;
+              } else if (dotAim < -0.9995) {
+                const prefer = (opts?.pole && opts.pole.lengthSq() > 1e-6)
+                  ? opts.pole.clone().normalize()
+                  : new THREE.Vector3(0, 1, 0);
+                if (Math.abs(d0Used.dot(prefer)) > 0.9) prefer.set(1, 0, 0);
+                axisAim = new THREE.Vector3().crossVectors(d0Used, prefer).normalize();
+                angleAim = Math.PI;
+              } else {
+                axisAim = new THREE.Vector3().crossVectors(d0Used, dir_v).normalize();
+                angleAim = Math.acos(dotAim);
+              }
+              let ang = clamp ? Math.max(clamp.min, Math.min(clamp.max, angleAim)) : angleAim;
+
+              // Lower arm: hinge constraint around right0 axis
+              if (opts?.mode === "lower") {
+                const up0 = new THREE.Vector3(0, 1, 0)
+                  .applyQuaternion(bone.qWorld0)
+                  .normalize();
+                const right0 = new THREE.Vector3()
+                  .crossVectors(d0Used, up0)
+                  .normalize();
+                const sgn = Math.sign(right0.dot(axisAim)) || 1;
+                axisAim = right0;
+                ang *= sgn;
+                ang = clamp ? Math.max(clamp.min, Math.min(clamp.max, ang)) : ang;
+              }
+
+              const q_align = new THREE.Quaternion().setFromAxisAngle(axisAim, ang);
               const q_world_target = bone.qWorld0.clone().premultiply(q_align);
+
+              // Upper arm: twist stabilize with pole
+              if (opts?.mode === "upper" && opts.pole) {
+                const up0 = new THREE.Vector3(0, 1, 0).applyQuaternion(bone.qWorld0).normalize();
+                const upAfter = up0.clone().applyQuaternion(new THREE.Quaternion().copy(q_align));
+                const n = new THREE.Vector3().crossVectors(dir_v, opts.pole.clone().normalize()).normalize();
+                if (n.lengthSq() > 1e-6 && upAfter.lengthSq() > 1e-6) {
+                  const c = Math.max(-1, Math.min(1, upAfter.dot(n)));
+                  const angTwist = Math.acos(c);
+                  const dir = new THREE.Vector3().crossVectors(upAfter, n);
+                  const sgn = Math.sign(dir.dot(dir_v)) || 1;
+                  const q_twist = new THREE.Quaternion().setFromAxisAngle(
+                    dir_v,
+                    (opts.twistStrength ?? 0.35) * angTwist * sgn,
+                  );
+                  q_world_target.premultiply(q_twist);
+                }
+              }
+
               const q_parent_world = new THREE.Quaternion();
               parent?.getWorldQuaternion(q_parent_world);
               const q_local_target = q_parent_world
@@ -454,6 +671,8 @@ export function VrmViewer() {
             const parentOf = (n?: THREE.Object3D | null) =>
               n ? (n.parent as THREE.Object3D | null) : null;
             const bones = calib.bones;
+            // 可視性チェック: v>=0.3 のときのみ適用
+            const visOk = (p?: { v?: number }) => !!p && typeof p.v === "number" && p.v >= 0.3;
             const slerpRest = (
               node?: THREE.Object3D,
               qLocal0?: THREE.Quaternion,
@@ -462,6 +681,15 @@ export function VrmViewer() {
               if (!node || !qLocal0) return;
               node.quaternion.slerp(qLocal0, rate);
             };
+            // Every second, report 3D/2D event counts to status (for diagnostics)
+            if (performance.now() - (lastReportRef.current || 0) > 1000) {
+              lastReportRef.current = performance.now();
+              const f3 = f3Ref.current;
+              const f2 = f2Ref.current;
+              f3Ref.current = 0;
+              f2Ref.current = 0;
+              setStatus(`${baseStatusRef.current} | 3D ${f3}/s, 2D ${f2}/s`);
+            }
             if (recalibHoldRef.current > 0) {
               recalibHoldRef.current -= 1;
               slerpRest(bones.lUpperArm?.node, bones.lUpperArm?.qLocal0, 0.35);
@@ -469,7 +697,42 @@ export function VrmViewer() {
               slerpRest(bones.lLowerArm?.node, bones.lLowerArm?.qLocal0, 0.4);
               slerpRest(bones.rLowerArm?.node, bones.rLowerArm?.qLocal0, 0.4);
               slerpRest(bones.chest?.node, bones.chest?.qLocal0, 0.3);
-            } else if (bones.lUpperArm && u3.lShoulder && u3.lElbow) {
+            } else if (
+              bones.lUpperArm &&
+              visOk(u3.lShoulder) &&
+              visOk(u3.lElbow)
+            ) {
+              // ---- Debug mapping (collect-only, no behavior change) ----
+              if (debugMappingRef.current) {
+                try {
+                  const mpDir = new THREE.Vector3(
+                    u3.lElbow.x - u3.lShoulder.x,
+                    u3.lElbow.y - u3.lShoulder.y,
+                    u3.lElbow.z - u3.lShoulder.z,
+                  ).normalize();
+                  const vrmDir = mpDir.clone().applyQuaternion(q_map).normalize();
+                  const d0 = bones.lUpperArm.dirWorld0.clone().normalize();
+                  const d0Used = d0.dot(vrmDir) < 0 ? d0.clone().multiplyScalar(-1) : d0;
+                  const dotU = Math.max(-1, Math.min(1, d0Used.dot(vrmDir)));
+                  const ySignMismatch =
+                    Math.sign(d0Used.y || 0) * Math.sign(vrmDir.y || 0) < 0;
+                  const near180 = dotU < -0.95; // after sign choice, should be rare
+                  const d = diagRef.current;
+                  d.samples += 1;
+                  if (ySignMismatch) d.mismY += 1;
+                  if (near180) d.near180 += 1;
+                  const now = performance.now();
+                  if (now - (lastDiagAtRef.current || 0) > 1000) {
+                    lastDiagAtRef.current = now;
+                    const ratio = d.samples > 0 ? d.mismY / d.samples : 0;
+                    setStatus(
+                      `${baseStatusRef.current} | mapDiag: smp ${d.samples} mismY ${(ratio * 100).toFixed(1)}% near180 ${d.near180}`,
+                    );
+                  }
+                } catch {
+                  void 0;
+                }
+              }
               applyBone(
                 bones.lUpperArm,
                 parentOf(bones.lUpperArm.node),
@@ -481,11 +744,16 @@ export function VrmViewer() {
                 new THREE.Vector3(u3.lElbow.x, u3.lElbow.y, u3.lElbow.z),
                 0.35,
                 { min: 0, max: 2.1 },
+                { mode: "upper", pole: pole_dyn, twistStrength: 0.2, signKey: "lUpper" },
               );
             } else {
               slerpRest(bones.lUpperArm?.node, bones.lUpperArm?.qLocal0, 0.2);
             }
-            if (bones.rUpperArm && u3.rShoulder && u3.rElbow) {
+            if (
+              bones.rUpperArm &&
+              visOk(u3.rShoulder) &&
+              visOk(u3.rElbow)
+            ) {
               applyBone(
                 bones.rUpperArm,
                 parentOf(bones.rUpperArm.node),
@@ -497,11 +765,16 @@ export function VrmViewer() {
                 new THREE.Vector3(u3.rElbow.x, u3.rElbow.y, u3.rElbow.z),
                 0.35,
                 { min: 0, max: 2.1 },
+                { mode: "upper", pole: pole_dyn, twistStrength: 0.2, signKey: "rUpper" },
               );
             } else {
               slerpRest(bones.rUpperArm?.node, bones.rUpperArm?.qLocal0, 0.2);
             }
-            if (bones.lLowerArm && u3.lElbow && u3.lWrist) {
+            if (
+              bones.lLowerArm &&
+              visOk(u3.lElbow) &&
+              visOk(u3.lWrist)
+            ) {
               applyBone(
                 bones.lLowerArm,
                 parentOf(bones.lLowerArm.node),
@@ -509,11 +782,16 @@ export function VrmViewer() {
                 new THREE.Vector3(u3.lWrist.x, u3.lWrist.y, u3.lWrist.z),
                 0.45,
                 { min: 0, max: 2.62 },
+                { mode: "lower" },
               );
             } else {
               slerpRest(bones.lLowerArm?.node, bones.lLowerArm?.qLocal0, 0.25);
             }
-            if (bones.rLowerArm && u3.rElbow && u3.rWrist) {
+            if (
+              bones.rLowerArm &&
+              visOk(u3.rElbow) &&
+              visOk(u3.rWrist)
+            ) {
               applyBone(
                 bones.rLowerArm,
                 parentOf(bones.rLowerArm.node),
@@ -521,13 +799,14 @@ export function VrmViewer() {
                 new THREE.Vector3(u3.rWrist.x, u3.rWrist.y, u3.rWrist.z),
                 0.45,
                 { min: 0, max: 2.62 },
+                { mode: "lower" },
               );
             } else {
               slerpRest(bones.rLowerArm?.node, bones.rLowerArm?.qLocal0, 0.25);
             }
 
             // Chest: align trunk gently (lock yaw; apply pitch/roll only)
-            if (bones.chest) {
+            if (bones.chest && chestAdjust) {
               const q_delta = calib.trunkQuatVRM
                 .clone()
                 .multiply(q_m.clone().invert())
@@ -566,7 +845,7 @@ export function VrmViewer() {
           const vrm2 = vrmRef.current;
           const calib = calibRef.current;
           const humanoid = vrm2?.humanoid;
-          if (active2D && vrm2 && humanoid) {
+          if (!threeDOnly && active2D && vrm2 && humanoid) {
             const chestNode =
               humanoid.getNormalizedBoneNode(VRMHumanBoneName.UpperChest) ||
               humanoid.getNormalizedBoneNode(VRMHumanBoneName.Chest) ||
@@ -717,6 +996,7 @@ export function VrmViewer() {
       scene.add(vrm.scene);
       vrmRef.current = vrm;
       setStatus("読み込み完了");
+      baseStatusRef.current = "読み込み完了";
       try {
         applySize();
         renderer.render(scene, camera);
@@ -1159,6 +1439,7 @@ export function VrmViewer() {
       if (!ce.detail) return;
       upper2dRef.current = ce.detail;
       last2DAtRef.current = performance.now();
+      f2Ref.current += 1;
     };
 
     window.addEventListener("motioncast:vrm-select", onSelect as EventListener);
@@ -1179,6 +1460,7 @@ export function VrmViewer() {
       if (!ce.detail) return;
       upper3dRef.current = ce.detail;
       last3DAtRef.current = performance.now();
+      f3Ref.current += 1;
     };
     window.addEventListener(
       "motioncast:upper-body-3d",
@@ -1226,9 +1508,9 @@ export function VrmViewer() {
       );
       try {
         const dom = renderer.domElement;
-        if ((dom as unknown as { isConnected?: boolean }).isConnected)
-          dom.remove();
-        else if (dom.parentElement === el) el.removeChild(dom);
+        if (dom && dom.parentElement === el) {
+          el.removeChild(dom);
+        }
       } catch {
         void 0;
       }
@@ -1307,15 +1589,17 @@ export function VrmViewer() {
 
   return (
     <div className="viewer-root">
-      <div className="viewer-canvas-wrap">
-        <div
-          ref={containerRef}
-          className="viewer-canvas"
-          aria-label="VRMビューア"
-        />
-        <div className="viewer-status" aria-live="polite">
-          {status}
+      <div className="viewer-box" aria-label="VRMビューア領域">
+        <div className="viewer-canvas-wrap">
+          <div
+            ref={containerRef}
+            className="viewer-canvas"
+            aria-label="VRMビューア"
+          />
         </div>
+      </div>
+      <div className="viewer-status" aria-live="polite">
+        {status}
       </div>
       <div className="viewer-controls-bar">
         <button
@@ -1333,6 +1617,79 @@ export function VrmViewer() {
         >
           {running ? "描画停止" : "描画再開"}
         </button>
+        <label style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <input
+            type="checkbox"
+            checked={threeDOnly}
+            onChange={(e) => {
+              const v = e.target.checked;
+              setThreeDOnly(v);
+              try {
+                localStorage.setItem("viewer.threeDOnly", String(v));
+              } catch {
+                void 0;
+              }
+            }}
+          />
+          3D専用
+        </label>
+        <label style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <input
+            type="checkbox"
+            checked={chestAdjust}
+            onChange={(e) => {
+              const v = e.target.checked;
+              setChestAdjust(v);
+              try {
+                localStorage.setItem("viewer.chestAdjust", String(v));
+              } catch {
+                void 0;
+              }
+            }}
+          />
+          胸補正ON
+        </label>
+        <label style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          フリップ
+          <select
+            value={flipSelect}
+            onChange={(e) => {
+              const v = e.target.value;
+              setFlipSelect(v);
+              try {
+                localStorage.setItem("viewer.flip", v);
+              } catch {
+                void 0;
+              }
+            }}
+          >
+            <option value="auto">auto</option>
+            <option value="I">I</option>
+            <option value="Rx">Rx</option>
+            <option value="Ry">Ry</option>
+            <option value="Rz">Rz</option>
+            <option value="RxRy">RxRy</option>
+            <option value="RyRz">RyRz</option>
+            <option value="RzRx">RzRx</option>
+            <option value="RxRyRz">RxRyRz</option>
+          </select>
+        </label>
+        <label style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <input
+            type="checkbox"
+            checked={invertUpperY}
+            onChange={(e) => setInvertUpperY(e.target.checked)}
+          />
+          上下反転（検証）
+        </label>
+        <label style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <input
+            type="checkbox"
+            checked={debugMapping}
+            onChange={(e) => setDebugMapping(e.target.checked)}
+          />
+          マッピング診断
+        </label>
         <button
           className="btn"
           onClick={() => {

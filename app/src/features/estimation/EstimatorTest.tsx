@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useEstimator } from "./useEstimator";
 import { useFaceLandmarker } from "./useFaceLandmarker";
 import { usePoseLandmarker } from "./usePoseLandmarker";
+import { useHandLandmarker } from "./useHandLandmarker";
 
 export function EstimatorTest() {
   const [enabled, setEnabled] = useState(true);
@@ -9,9 +10,19 @@ export function EstimatorTest() {
   const [useMP, setUseMP] = useState(false);
   const { frame } = useEstimator(enabled && !useMP, fps);
   const { loaded, error } = useFaceLandmarker(enabled && useMP);
-  const [usePose, setUsePose] = useState(false);
+  const [usePose, setUsePose] = useState<boolean>(() => {
+    try {
+      const v = localStorage.getItem("pose.enabled");
+      return v == null ? true : v !== "false";
+    } catch {
+      return true;
+    }
+  });
   const pose = usePoseLandmarker(enabled && usePose, 15);
   const [poseInfo, setPoseInfo] = useState<string>("-");
+  const [useHands, setUseHands] = useState(false);
+  const hands = useHandLandmarker(enabled && useHands, 24);
+  const [handInfo, setHandInfo] = useState<string>("-");
 
   useEffect(() => {
     if (!usePose) return;
@@ -36,6 +47,37 @@ export function EstimatorTest() {
         onPose as EventListener,
       );
   }, [usePose]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("pose.enabled", String(usePose));
+    } catch {
+      /* noop */
+    }
+  }, [usePose]);
+
+  useEffect(() => {
+    if (!useHands) return;
+    const onHands = (ev: Event) => {
+      const ce = ev as CustomEvent<
+        Array<{
+          handed: "Left" | "Right";
+          curls: { thumb: number; index: number; middle: number; ring: number; pinky: number };
+        }>
+      >;
+      const hands = ce.detail || [];
+      const avg = (o: { [k: string]: number }) =>
+        Object.values(o).reduce((a, b) => a + b, 0) / Math.max(1, Object.keys(o).length);
+      const L = hands.find((h) => h.handed === "Left");
+      const R = hands.find((h) => h.handed === "Right");
+      setHandInfo(
+        `L:${L ? avg(L.curls).toFixed(2) : "-"} / R:${R ? avg(R.curls).toFixed(2) : "-"}`,
+      );
+    };
+    window.addEventListener("motioncast:hands-3d", onHands as EventListener);
+    return () =>
+      window.removeEventListener("motioncast:hands-3d", onHands as EventListener);
+  }, [useHands]);
 
   return (
     <div>
@@ -98,6 +140,25 @@ export function EstimatorTest() {
               ? `読み込み失敗: ${pose.error}`
               : pose.loaded
                 ? poseInfo
+                : "読み込み中..."}
+          </span>
+        )}
+      </div>
+      <div className="ipc-row small">
+        <label>
+          <input
+            type="checkbox"
+            checked={useHands}
+            onChange={(e) => setUseHands(e.target.checked)}
+          />
+          <span style={{ marginLeft: 6 }}>Hands(両手)を使用（~24fps）</span>
+        </label>
+        {useHands && (
+          <span style={{ marginLeft: 8 }}>
+            {hands.error
+              ? `読み込み失敗: ${hands.error}`
+              : hands.loaded
+                ? `平均カール: ${handInfo}`
                 : "読み込み中..."}
           </span>
         )}

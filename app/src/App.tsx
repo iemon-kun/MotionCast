@@ -181,9 +181,7 @@ function App() {
             <div className="box">
               <h2 className="section-title">VRMビューア</h2>
               <VrmPlaceholder />
-              <div className="viewer-box" aria-label="VRMビューア領域">
-                <VrmViewer />
-              </div>
+              <VrmViewer />
             </div>
             <div className="box">
               <h2 className="section-title">推定テスト（スタブ）</h2>
