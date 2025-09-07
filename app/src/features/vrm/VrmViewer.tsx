@@ -274,7 +274,7 @@ export function VrmViewer() {
               bone.node.quaternion.slerp(q_local_target, smooth);
             };
 
-            const humanoid = vrm.humanoid;
+            // const humanoid = vrm.humanoid; // unused
             const parentOf = (n?: THREE.Object3D | null) => (n ? (n.parent as THREE.Object3D | null) : null);
             const bones = calib.bones;
             const slerpRest = (node?: THREE.Object3D, qLocal0?: THREE.Quaternion, rate = 0.2) => {
@@ -551,7 +551,7 @@ export function VrmViewer() {
           },
         };
         }
-      } catch {}
+      } catch { void 0; }
     };
 
     const loadFromURL = async (url: string) => {
@@ -562,14 +562,14 @@ export function VrmViewer() {
         const vrm = gltf.userData.vrm as VRM | undefined;
         if (!vrm) {
           setStatus("VRMではありません（0.x想定）");
-          try { URL.revokeObjectURL(url); } catch {}
+          try { URL.revokeObjectURL(url); } catch { void 0; }
           return;
         }
         onLoadedVRM(vrm);
       } catch (e) {
         setStatus(e instanceof Error ? `読み込み失敗: ${e.message}` : "読み込み失敗");
       } finally {
-        try { URL.revokeObjectURL(url); } catch {}
+        try { URL.revokeObjectURL(url); } catch { void 0; }
       }
     };
 
@@ -638,7 +638,7 @@ export function VrmViewer() {
               detail: { blink: p.blink, mouth: p.mouth, ts: performance.now() },
             })
           );
-        } catch {}
+        } catch { void 0; }
       }
     };
 
@@ -745,7 +745,7 @@ export function VrmViewer() {
           onClick={() => {
             const next = !running;
             setRunning(next);
-            try { localStorage.setItem("viewer.running", String(next)); } catch {}
+            try { localStorage.setItem("viewer.running", String(next)); } catch { void 0; }
           }}
         >
           {running ? "描画停止" : "描画再開"}
@@ -755,7 +755,7 @@ export function VrmViewer() {
           onClick={() => {
             const next = !showCube;
             setShowCube(next);
-            try { localStorage.setItem("viewer.showCube", String(next)); } catch {}
+            try { localStorage.setItem("viewer.showCube", String(next)); } catch { void 0; }
           }}
         >
           {showCube ? "テストキューブを消す" : "テストキューブを生成"}
@@ -770,7 +770,7 @@ export function VrmViewer() {
             onChange={(e) => {
               const v = e.target.checked;
               setInvertChestPitch(v);
-              try { localStorage.setItem("viewer.invertChestPitch", String(v)); } catch {}
+              try { localStorage.setItem("viewer.invertChestPitch", String(v)); } catch { void 0; }
             }}
           />
           胸ピッチを反転
@@ -782,7 +782,7 @@ export function VrmViewer() {
             onChange={(e) => {
               const v = Number(e.target.value) || 1;
               setPixelRatioCap(v);
-              try { localStorage.setItem("viewer.pixelRatioCap", String(v)); } catch {}
+              try { localStorage.setItem("viewer.pixelRatioCap", String(v)); } catch { void 0; }
             }}
           >
             <option value="1">PR 1.0</option>
