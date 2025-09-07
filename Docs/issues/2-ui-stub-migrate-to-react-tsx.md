@@ -1,3 +1,6 @@
+---
+issue: 16
+---
 ### 背景／目的
 UIデモ（Docs/frontend_sample.html）をReact/TSXへ移植し、MVPで必要な画面構造・操作感・永続を再現する。
 参照: Docs/frontend_sample.html, Docs/03_データベース設計書.md（なし）, Docs/05_サイトマップ.md（なし）

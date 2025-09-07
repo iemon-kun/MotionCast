@@ -1,3 +1,6 @@
+---
+issue: 14
+---
 ### 背景／目的
 GitHub ActionsでTauriのバンドルを自動化し、macOS優先でArtifactsを生成する。
 参照: Docs/02_アーキテクチャ設計書.md

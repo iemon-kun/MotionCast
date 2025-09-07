@@ -1,3 +1,6 @@
+---
+issue: 7
+---
 ### 背景／目的
 cluster互換の最小OSC項目（Blink/Mouth/Head）を定義し、送信ループを実装する。
 参照: https://docs.cluster.mu/creatorkit/ , https://docs.cluster.mu/script/index.html , Docs/02_アーキテクチャ設計書.md

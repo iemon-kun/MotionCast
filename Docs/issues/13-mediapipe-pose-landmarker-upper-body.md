@@ -1,3 +1,6 @@
+---
+issue: 10
+---
 ### 背景／目的
 上半身（首・肩・腕・胸）に必要なランドマークをMediaPipe Pose Landmarkerで取得する。
 参照: Docs/01_要件定義書.md, Docs/02_アーキテクチャ設計書.md

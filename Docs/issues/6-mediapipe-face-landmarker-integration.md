@@ -1,3 +1,6 @@
+---
+issue: 24
+---
 ### 背景／目的
 MediaPipe Tasks（Face Landmarker）を導入し、顔ランドマークの推定を取得して表情指標算出の前段を整える。
 参照: Docs/02_アーキテクチャ設計書.md

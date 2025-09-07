@@ -1,3 +1,6 @@
+---
+issue: 23
+---
 ### 背景／目的
 WebカメラのMediaStreamを取得し、UIのプレビューに表示。MVPの入力基盤を整える。
 参照: Docs/01_要件定義書.md, Docs/frontend_sample.html

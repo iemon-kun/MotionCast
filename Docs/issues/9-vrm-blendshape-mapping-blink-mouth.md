@@ -1,3 +1,6 @@
+---
+issue: 27
+---
 ### 背景／目的
 推定したBlink/MouthOpen値をVRM 0.xのBlendShapeへマッピングして、表情反映を行う。
 参照: Docs/01_要件定義書.md, Docs/02_アーキテクチャ設計書.md
