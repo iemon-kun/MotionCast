@@ -149,7 +149,8 @@ function App() {
   useEffect(() => {
     const onUpdate = (ev: Event) => {
       const ce = ev as CustomEvent<{ visible?: boolean }>;
-      if (typeof ce.detail?.visible === "boolean") setCamVisible(ce.detail.visible);
+      if (typeof ce.detail?.visible === "boolean")
+        setCamVisible(ce.detail.visible);
     };
     window.addEventListener(
       "motioncast:camera-update-settings",
@@ -304,7 +305,10 @@ function App() {
 
         <section className="content">
           <div className="content-grid">
-            <div className="box" style={{ display: camVisible ? "block" : "none" }}>
+            <div
+              className="box"
+              style={{ display: camVisible ? "block" : "none" }}
+            >
               <h2 className="section-title">カメラプレビュー</h2>
               <CameraPreview inlineControls="minimal" />
             </div>

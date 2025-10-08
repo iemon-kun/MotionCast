@@ -48,7 +48,14 @@ export function CameraSettingsPanel() {
   }, []);
 
   const dispatchUpdate = useCallback(
-    (partial: Partial<{ deviceId: string; resolution: string; fps: number; visible: boolean }>) => {
+    (
+      partial: Partial<{
+        deviceId: string;
+        resolution: string;
+        fps: number;
+        visible: boolean;
+      }>,
+    ) => {
       try {
         window.dispatchEvent(
           new CustomEvent("motioncast:camera-update-settings", {
@@ -172,7 +179,10 @@ export function CameraSettingsPanel() {
             value={fps}
             disabled={running}
             onChange={(e) => {
-              const nv = Math.max(15, Math.min(60, Number(e.target.value) || 0));
+              const nv = Math.max(
+                15,
+                Math.min(60, Number(e.target.value) || 0),
+              );
               setFps(nv);
               try {
                 localStorage.setItem("camera.fps", String(nv));
@@ -184,7 +194,11 @@ export function CameraSettingsPanel() {
             className="input-number"
           />
         </label>
-        <button className="btn" onClick={() => refreshDevices()} disabled={running}>
+        <button
+          className="btn"
+          onClick={() => refreshDevices()}
+          disabled={running}
+        >
           デバイス更新
         </button>
       </div>

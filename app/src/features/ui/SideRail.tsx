@@ -61,4 +61,3 @@ export function SideRail({ showSidebar, onToggleSidebar }: Props) {
 }
 
 export default SideRail;
-

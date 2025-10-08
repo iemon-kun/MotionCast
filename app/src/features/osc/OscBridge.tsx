@@ -180,7 +180,9 @@ export function OscBridge() {
   }>(null);
   const shoulderTargetRef = useRef<number>(0.38);
   // Position EMA smoothing state
-  const posSmoothRef = useRef<Record<string, { x: number; y: number; z: number }>>({});
+  const posSmoothRef = useRef<
+    Record<string, { x: number; y: number; z: number }>
+  >({});
 
   useEffect(() => {
     const onPose = (ev: Event) => {
@@ -356,7 +358,9 @@ export function OscBridge() {
           const v = d.toLowerCase();
           a = v === "off" ? 0 : v === "low" ? 0.1 : v === "high" ? 0.4 : 0.25;
         } else if (
-          d && typeof d === "object" && typeof (d as { alpha?: unknown }).alpha === "number"
+          d &&
+          typeof d === "object" &&
+          typeof (d as { alpha?: unknown }).alpha === "number"
         ) {
           a = (d as { alpha: number }).alpha;
         }
@@ -400,10 +404,7 @@ export function OscBridge() {
         invoke("osc_update", { pose: payload }).catch(() => {});
       }
       // Lightweight EMA for tracker positions
-      const emaPos = (
-        key: string,
-        v?: { x: number; y: number; z: number },
-      ) => {
+      const emaPos = (key: string, v?: { x: number; y: number; z: number }) => {
         if (!v) return v;
         const s = posSmoothRef.current[key];
         const alpha = Math.max(0, Math.min(1, posAlphaRef.current || 0));
@@ -517,8 +518,10 @@ export function OscBridge() {
                 head: emaPos("head", rHead ?? tHead ?? head) ?? undefined,
                 chest: emaPos("chest", rChest ?? tChest ?? chest) ?? undefined,
                 hips: emaPos("hips", rHips ?? tHips ?? hips) ?? undefined,
-                l_wrist: emaPos("l_wrist", rLWrist ?? tLWrist ?? l_wrist) ?? undefined,
-                r_wrist: emaPos("r_wrist", rRWrist ?? tRWrist ?? r_wrist) ?? undefined,
+                l_wrist:
+                  emaPos("l_wrist", rLWrist ?? tLWrist ?? l_wrist) ?? undefined,
+                r_wrist:
+                  emaPos("r_wrist", rRWrist ?? tRWrist ?? r_wrist) ?? undefined,
               },
             }).catch(() => {});
           }
