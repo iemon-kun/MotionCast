@@ -868,6 +868,35 @@ export function VrmViewer() {
                 .multiply(q_world_target);
               bones.chest.node.quaternion.slerp(q_local_target, 0.25);
             }
+            // Publish upper-body local quaternions for OSC bridge (VMC/mc-upper)
+            try {
+              const pack = (n?: THREE.Object3D) =>
+                n
+                  ? {
+                      x: n.quaternion.x,
+                      y: n.quaternion.y,
+                      z: n.quaternion.z,
+                      w: n.quaternion.w,
+                    }
+                  : undefined;
+              const ub = {
+                chest: pack(bones.chest?.node),
+                l_shoulder: pack(bones.lShoulder?.node),
+                r_shoulder: pack(bones.rShoulder?.node),
+                l_upper_arm: pack(bones.lUpperArm?.node),
+                r_upper_arm: pack(bones.rUpperArm?.node),
+                l_lower_arm: pack(bones.lLowerArm?.node),
+                r_lower_arm: pack(bones.rLowerArm?.node),
+                // wrist = child node (hand) of lowerArm
+                l_wrist: pack(bones.lLowerArm?.child),
+                r_wrist: pack(bones.rLowerArm?.child),
+              } as const;
+              window.dispatchEvent(
+                new CustomEvent("motioncast:upper-body-quat", { detail: ub }),
+              );
+            } catch {
+              // noop
+            }
           }
         } else {
           // 2D fallback or relax

@@ -52,6 +52,7 @@ impl Default for AppState {
 enum Schema {
   Minimal,
   ClusterBasic,
+  ClusterCompat,
   McUpper, // Minimal + upper-body quaternions under /mc/ub/*
   Vmc,     // /VMC/Ext/Bone/Pos (subset)
   VrchatTrackers, // /tracking/trackers/* (rotation/position). Minimal実装はhead rotationのみ
@@ -234,7 +235,7 @@ fn osc_start(state: tauri::State<AppState>, addr: String, port: u16, rate_hz: u3
             OscPacket::Message(OscMessage { addr: "/mc/mouth".to_string(), args: vec![OscType::Float(smoothed.mouth)] }),
             OscPacket::Message(OscMessage { addr: "/mc/head".to_string(), args: vec![OscType::Float(yaw_deg), OscType::Float(pitch_deg), OscType::Float(roll_deg)] }),
           ],
-          Schema::ClusterBasic => vec![
+          Schema::ClusterBasic | Schema::ClusterCompat => vec![
             OscPacket::Message(OscMessage { addr: "/cluster/face/blink".to_string(), args: vec![OscType::Float(smoothed.blink)] }),
             OscPacket::Message(OscMessage { addr: "/cluster/face/jawOpen".to_string(), args: vec![OscType::Float(smoothed.mouth)] }),
             OscPacket::Message(OscMessage { addr: "/cluster/head/euler".to_string(), args: vec![OscType::Float(yaw_deg), OscType::Float(pitch_deg), OscType::Float(roll_deg)] }),
@@ -245,10 +246,22 @@ fn osc_start(state: tauri::State<AppState>, addr: String, port: u16, rate_hz: u3
             OscPacket::Message(OscMessage { addr: "/mc/mouth".to_string(), args: vec![OscType::Float(smoothed.mouth)] }),
             OscPacket::Message(OscMessage { addr: "/mc/head".to_string(), args: vec![OscType::Float(yaw_deg), OscType::Float(pitch_deg), OscType::Float(roll_deg)] }),
           ],
-          Schema::Vmc => vec![
-            // VMC: send a subset of bones we have as local rotation; position is zero.
-            // Note: coordinate alignment with Cluster humanoid may need adjustment later.
-          ],
+          Schema::Vmc | Schema::ClusterCompat => {
+            // VMC: send a subset of bones as local rotation; include basic heartbeat/time.
+            let mut v = vec![
+              // Heartbeat (some receivers expect this to consider stream valid)
+              OscPacket::Message(OscMessage { addr: "/VMC/Ext/OK".to_string(), args: vec![OscType::String("OK".to_string())] }),
+              // Timestamp (seconds since epoch; some clients use it)
+              {
+                let secs = std::time::SystemTime::now()
+                  .duration_since(std::time::UNIX_EPOCH)
+                  .map(|d| d.as_secs_f32())
+                  .unwrap_or(0.0);
+                OscPacket::Message(OscMessage { addr: "/VMC/Ext/T".to_string(), args: vec![OscType::Float(secs)] })
+              },
+            ];
+            v
+          },
           Schema::VrchatTrackers => vec![
             // Minimal viable: head rotation only (Euler deg). Position is not sent here yet.
             OscPacket::Message(OscMessage {
@@ -308,7 +321,7 @@ fn osc_start(state: tauri::State<AppState>, addr: String, port: u16, rate_hz: u3
           push_q("/mc/ub/l_wrist", &upper.l_wrist);
           push_q("/mc/ub/r_wrist", &upper.r_wrist);
         }
-        if let Schema::Vmc = schema {
+        if matches!(schema, Schema::Vmc | Schema::ClusterCompat) {
           // Helper to push /VMC/Ext/Bone/Pos with zero position and given quaternion
           let mut push_vmc = |name: &str, q: &Option<Quat>| {
             if let Some(qv) = q {
@@ -406,6 +419,7 @@ fn osc_set_schema(state: tauri::State<AppState>, schema: String) -> Result<(), S
   let normalized = schema.to_lowercase();
   *s = match normalized.as_str() {
     "cluster" | "cluster-basic" | "cluster_basic" => Schema::ClusterBasic,
+    "cluster-compat" | "cluster_compat" | "cluster+vmc" => Schema::ClusterCompat,
     "upper" | "mc-upper" | "mc_upper" | "ub" => Schema::McUpper,
     "vmc" | "vmd" | "vmc-ext" | "vmc_ext" => Schema::Vmc,
     "vrchat" | "vrchat-trackers" | "vrchat_trackers" | "trackers" => Schema::VrchatTrackers,

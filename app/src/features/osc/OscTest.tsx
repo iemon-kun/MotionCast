@@ -41,6 +41,14 @@ export function OscTest() {
       return "med";
     }
   });
+  // 位置スムージング（EMA）: off/low/med/high
+  const [posSmooth, setPosSmooth] = useState<string>(() => {
+    try {
+      return localStorage.getItem("pos.smoothing") || "med";
+    } catch {
+      return "med";
+    }
+  });
   // 表情送信ソース: raw | vrm
   const [exprSource, setExprSource] = useState<string>(() => {
     try {
@@ -259,6 +267,18 @@ export function OscTest() {
     }
   }, [exprSource]);
 
+  // 位置スムージング係数をBridgeへ通知
+  useEffect(() => {
+    try {
+      window.dispatchEvent(
+        new CustomEvent("motioncast:pos-smoothing", { detail: posSmooth }),
+      );
+      localStorage.setItem("pos.smoothing", posSmooth);
+    } catch {
+      /* noop */
+    }
+  }, [posSmooth]);
+
   useEffect(() => {
     return () => {
       if (sending) void invoke("osc_stop");
@@ -354,6 +374,7 @@ export function OscTest() {
         >
           <option value="minimal">minimal</option>
           <option value="cluster">cluster-basic</option>
+          <option value="cluster-compat">cluster-compat (+VMC bones)</option>
           <option value="vrchat">
             vrchat (OSC trackers: head rot + chest/hips/wrists pos)
           </option>
@@ -377,6 +398,16 @@ export function OscTest() {
           <option value="low">smoothing: low</option>
           <option value="med">smoothing: med</option>
           <option value="high">smoothing: high</option>
+        </select>
+        <select
+          value={posSmooth}
+          onChange={(e) => setPosSmooth(e.target.value)}
+          aria-label="位置スムージング"
+        >
+          <option value="off">pos: off</option>
+          <option value="low">pos: low</option>
+          <option value="med">pos: med</option>
+          <option value="high">pos: high</option>
         </select>
         {sending ? (
           <button className="btn" onClick={stop}>
