@@ -183,6 +183,8 @@ export function OscBridge() {
   const posSmoothRef = useRef<
     Record<string, { x: number; y: number; z: number }>
   >({});
+  // Position EMA alpha (0..1), controlled via UI event
+  const posAlphaRef = useRef<number>(0.25);
 
   useEffect(() => {
     const onPose = (ev: Event) => {
