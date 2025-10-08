@@ -6,7 +6,11 @@ type StartOptions = {
   fps?: number;
 };
 
-export function CameraPreview() {
+export function CameraPreview({
+  inlineControls = "full",
+}: {
+  inlineControls?: "full" | "minimal";
+}) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -49,6 +53,8 @@ export function CameraPreview() {
   const [measW, setMeasW] = useState<number | null>(null);
   const [measH, setMeasH] = useState<number | null>(null);
   const [measFps, setMeasFps] = useState<number | null>(null);
+  // Debounce restart on rapid setting changes
+  const restartTimerRef = useRef<number | null>(null);
 
   const parseResolution = useCallback(
     (res: string): { width: number; height: number } => {
@@ -258,6 +264,83 @@ export function CameraPreview() {
     };
   }, [refreshDevices]);
 
+  // Settings サイドバーからの反映イベント
+  useEffect(() => {
+    const onUpdate = (ev: Event) => {
+      const ce = ev as CustomEvent<{
+        deviceId?: string;
+        resolution?: string;
+        fps?: number;
+        visible?: boolean;
+      }>;
+      const d = ce.detail || {};
+      let changedStreamingParam = false;
+      if (typeof d.deviceId === "string") {
+        setSelectedId(d.deviceId);
+        try {
+          localStorage.setItem("camera.deviceId", d.deviceId);
+        } catch {
+          /* ignore */
+        }
+        changedStreamingParam = true;
+      }
+      if (typeof d.resolution === "string") {
+        setResolution(d.resolution);
+        try {
+          localStorage.setItem("camera.resolution", d.resolution);
+        } catch {
+          /* ignore */
+        }
+        changedStreamingParam = true;
+      }
+      if (typeof d.fps === "number" && Number.isFinite(d.fps)) {
+        const v = Math.max(15, Math.min(60, d.fps));
+        setFps(v);
+        try {
+          localStorage.setItem("camera.fps", String(v));
+        } catch {
+          /* ignore */
+        }
+        changedStreamingParam = true;
+      }
+      if (typeof d.visible === "boolean") {
+        setVisible(d.visible);
+        try {
+          localStorage.setItem("camera.visible", String(d.visible));
+        } catch {
+          /* ignore */
+        }
+      }
+      // 再起動はストリーム条件（デバイス/解像度/FPS）が変わった場合のみ。
+      // さらにデバウンスして、短時間に複数変更が来ても1回の再起動に抑える。
+      // 「プレビューの表示/非表示」だけでは再起動せず、トラッキングを維持する。
+      if (active && changedStreamingParam) {
+        if (restartTimerRef.current != null) {
+          clearTimeout(restartTimerRef.current);
+          restartTimerRef.current = null;
+        }
+        restartTimerRef.current = window.setTimeout(() => {
+          void start();
+        }, 200);
+      }
+    };
+    window.addEventListener(
+      "motioncast:camera-update-settings",
+      onUpdate as EventListener,
+    );
+    return () =>
+      window.removeEventListener(
+        "motioncast:camera-update-settings",
+        onUpdate as EventListener,
+      );
+    return () => {
+      if (restartTimerRef.current != null) {
+        clearTimeout(restartTimerRef.current);
+        restartTimerRef.current = null;
+      }
+    };
+  }, [active, start]);
+
   // Keep <video> intrinsic size in sync with container size
   useEffect(() => {
     const el = videoRef.current;
@@ -277,6 +360,33 @@ export function CameraPreview() {
     ro.observe(container);
     return () => ro.disconnect();
   }, [visible]);
+
+  // App側のレイアウト変更イベントで明示的に再測定
+  useEffect(() => {
+    const onLayout = () => {
+      const el = videoRef.current;
+      const container = el?.parentElement as HTMLElement | null;
+      if (!el || !container) return;
+      try {
+        const rect = container.getBoundingClientRect();
+        const w = Math.max(1, Math.floor(rect.width));
+        const h = Math.max(1, Math.floor(rect.height));
+        el.width = w;
+        el.height = h;
+      } catch {
+        /* ignore */
+      }
+    };
+    window.addEventListener(
+      "motioncast:layout-changed",
+      onLayout as EventListener,
+    );
+    return () =>
+      window.removeEventListener(
+        "motioncast:layout-changed",
+        onLayout as EventListener,
+      );
+  }, []);
 
   // エラーに応じた対処ガイド
   const buildErrorHelp = useCallback((err: unknown): string[] => {
@@ -344,91 +454,96 @@ export function CameraPreview() {
   return (
     <section aria-label="カメラプレビュー" className="camera-section">
       <div className="camera-toolbar">
-        <button
-          className="btn"
-          aria-pressed={visible}
-          onClick={() => {
-            const next = !visible;
-            setVisible(next);
-            try {
-              localStorage.setItem("camera.visible", String(next));
-            } catch {
-              void 0;
-            }
-            // プレビューの表示/非表示はストリーム制御と切り離す。
-            // 継続して推定/送信が動くよう、ここでは停止しない。
-          }}
-        >
-          {visible ? "カメラ非表示" : "カメラ表示"}
-        </button>
-        <label>
-          <span className="sr-only">カメラデバイス</span>
-          <select
-            value={selectedId}
-            onChange={async (e) => {
-              const id = e.target.value;
-              setSelectedId(id);
-              try {
-                localStorage.setItem("camera.deviceId", id);
-              } catch {
-                void 0;
-              }
-              if (active) await start();
-            }}
-          >
-            {devices.map((d) => (
-              <option key={d.deviceId} value={d.deviceId}>
-                {d.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <span className="sr-only">解像度</span>
-          <select
-            value={resolution}
-            onChange={async (e) => {
-              const v = e.target.value;
-              setResolution(v);
-              try {
-                localStorage.setItem("camera.resolution", v);
-              } catch {
-                void 0;
-              }
-              if (active) await start();
-            }}
-          >
-            <option value="1920x1080">1920x1080</option>
-            <option value="1280x720">1280x720</option>
-            <option value="960x540">960x540</option>
-          </select>
-        </label>
-        <label>
-          <span className="sr-only">FPS</span>
-          <input
-            type="number"
-            min={15}
-            max={60}
-            step={1}
-            value={fps}
-            onChange={(e) => {
-              const v = Math.max(15, Math.min(60, Number(e.target.value) || 0));
-              setFps(v);
-              try {
-                localStorage.setItem("camera.fps", String(v));
-              } catch {
-                void 0;
-              }
-            }}
-            onBlur={async () => {
-              if (active) await start();
-            }}
-            className="input-number"
-          />
-        </label>
-        <button className="btn" onClick={() => refreshDevices()}>
-          デバイス更新
-        </button>
+        {inlineControls === "full" && (
+          <>
+            <button
+              className="btn"
+              aria-pressed={visible}
+              onClick={() => {
+                const next = !visible;
+                setVisible(next);
+                try {
+                  localStorage.setItem("camera.visible", String(next));
+                } catch {
+                  void 0;
+                }
+              }}
+            >
+              {visible ? "カメラ非表示" : "カメラ表示"}
+            </button>
+            <label>
+              <span className="sr-only">カメラデバイス</span>
+              <select
+                value={selectedId}
+                onChange={async (e) => {
+                  const id = e.target.value;
+                  setSelectedId(id);
+                  try {
+                    localStorage.setItem("camera.deviceId", id);
+                  } catch {
+                    void 0;
+                  }
+                  if (active) await start();
+                }}
+              >
+                {devices.map((d) => (
+                  <option key={d.deviceId} value={d.deviceId}>
+                    {d.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span className="sr-only">解像度</span>
+              <select
+                value={resolution}
+                onChange={async (e) => {
+                  const v = e.target.value;
+                  setResolution(v);
+                  try {
+                    localStorage.setItem("camera.resolution", v);
+                  } catch {
+                    void 0;
+                  }
+                  if (active) await start();
+                }}
+              >
+                <option value="1920x1080">1920x1080</option>
+                <option value="1280x720">1280x720</option>
+                <option value="960x540">960x540</option>
+              </select>
+            </label>
+            <label>
+              <span className="sr-only">FPS</span>
+              <input
+                type="number"
+                min={15}
+                max={60}
+                step={1}
+                value={fps}
+                onChange={(e) => {
+                  const v = Math.max(
+                    15,
+                    Math.min(60, Number(e.target.value) || 0),
+                  );
+                  setFps(v);
+                  try {
+                    localStorage.setItem("camera.fps", String(v));
+                  } catch {
+                    void 0;
+                  }
+                }}
+                onBlur={async () => {
+                  if (active) await start();
+                }}
+                className="input-number"
+              />
+            </label>
+            <button className="btn" onClick={() => refreshDevices()}>
+              デバイス更新
+            </button>
+          </>
+        )}
         {active ? (
           <button className="btn" onClick={() => stop()} aria-pressed={active}>
             カメラ停止

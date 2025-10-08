@@ -115,6 +115,11 @@ export function OscBridge() {
   const latestRef = useRef<Pose | null>(null);
   const upperRef = useRef<UpperBody | null>(null); // latest measured local quats
   const upper3dRef = useRef<UpperBody3D | null>(null); // latest 3D joints with visibility
+  // Hands wrists (latest snapshot)
+  const handsRef = useRef<{
+    L?: { p: { x: number; y: number; z: number }; ts: number };
+    R?: { p: { x: number; y: number; z: number }; ts: number };
+  }>({});
   // 表情ソース: raw | vrm
   const exprSourceRef = useRef<"raw" | "vrm">("raw");
   const vrmExprRef = useRef<{
@@ -174,6 +179,8 @@ export function OscBridge() {
     scale: number;
   }>(null);
   const shoulderTargetRef = useRef<number>(0.38);
+  // Position EMA smoothing state
+  const posSmoothRef = useRef<Record<string, { x: number; y: number; z: number }>>({});
 
   useEffect(() => {
     const onPose = (ev: Event) => {
@@ -197,6 +204,30 @@ export function OscBridge() {
       "motioncast:upper-body-3d",
       onUpper3d as EventListener,
     );
+    // Hands (wrists) intake
+    const onHands = (ev: Event) => {
+      try {
+        const ce = ev as CustomEvent<
+          Array<{
+            handed: "Left" | "Right";
+            wrist?: { x: number; y: number; z: number };
+            ts: number;
+          }>
+        >;
+        const list = ce.detail || [];
+        for (const h of list) {
+          if (!h?.wrist) continue;
+          if (h.handed === "Left") {
+            handsRef.current.L = { p: { ...h.wrist }, ts: h.ts };
+          } else if (h.handed === "Right") {
+            handsRef.current.R = { p: { ...h.wrist }, ts: h.ts };
+          }
+        }
+      } catch {
+        /* noop */
+      }
+    };
+    window.addEventListener("motioncast:hands-3d", onHands as EventListener);
     // Calibration triggers and params
     const onCalib = () => {
       try {
@@ -314,6 +345,33 @@ export function OscBridge() {
       "motioncast:metrics-enabled",
       onMetrics as EventListener,
     );
+    // Position smoothing alpha (0..1) from UI
+    const onPosSmoothing = (ev: Event) => {
+      try {
+        const ce = ev as CustomEvent<unknown>;
+        const d = ce.detail as unknown;
+        let a: number | null = null;
+        if (typeof d === "number") a = d;
+        else if (typeof d === "string") {
+          const v = d.toLowerCase();
+          a = v === "off" ? 0 : v === "low" ? 0.1 : v === "high" ? 0.4 : 0.25;
+        } else if (
+          d && typeof d === "object" && typeof (d as { alpha?: unknown }).alpha === "number"
+        ) {
+          a = (d as { alpha: number }).alpha;
+        }
+        if (a != null) {
+          const x = Number.isFinite(a) ? a : 0;
+          posAlphaRef.current = x < 0 ? 0 : x > 1 ? 1 : x;
+        }
+      } catch {
+        /* noop */
+      }
+    };
+    window.addEventListener(
+      "motioncast:pos-smoothing",
+      onPosSmoothing as EventListener,
+    );
 
     const tick = () => {
       rafRef.current = requestAnimationFrame(tick);
@@ -341,6 +399,23 @@ export function OscBridge() {
         };
         invoke("osc_update", { pose: payload }).catch(() => {});
       }
+      // Lightweight EMA for tracker positions
+      const emaPos = (
+        key: string,
+        v?: { x: number; y: number; z: number },
+      ) => {
+        if (!v) return v;
+        const s = posSmoothRef.current[key];
+        const alpha = Math.max(0, Math.min(1, posAlphaRef.current || 0));
+        if (!s) {
+          posSmoothRef.current[key] = { ...v };
+          return v;
+        }
+        s.x += alpha * (v.x - s.x);
+        s.y += alpha * (v.y - s.y);
+        s.z += alpha * (v.z - s.z);
+        return { x: s.x, y: s.y, z: s.z };
+      };
       const upper = upperRef.current;
       if (upper) {
         const cfg = cfgRef.current;
@@ -370,20 +445,28 @@ export function OscBridge() {
             const head = visOk(u3.nose)
               ? { x: u3.nose!.x, y: u3.nose!.y, z: u3.nose!.z }
               : undefined;
-            const l_wrist = visOk(u3.lWrist)
+            let l_wrist = visOk(u3.lWrist)
               ? {
                   x: u3.lWrist!.x,
                   y: u3.lWrist!.y,
                   z: u3.lWrist!.z,
                 }
               : undefined;
-            const r_wrist = visOk(u3.rWrist)
+            let r_wrist = visOk(u3.rWrist)
               ? {
                   x: u3.rWrist!.x,
                   y: u3.rWrist!.y,
                   z: u3.rWrist!.z,
                 }
               : undefined;
+            // Prefer Hands wrists when fresh
+            {
+              const HANDS_TTL_MS = 180;
+              const L = handsRef.current.L;
+              const R = handsRef.current.R;
+              if (L && now - L.ts <= HANDS_TTL_MS) l_wrist = { ...L.p };
+              if (R && now - R.ts <= HANDS_TTL_MS) r_wrist = { ...R.p };
+            }
             const applyCalib = (v?: {
               x: number;
               y: number;
@@ -431,11 +514,11 @@ export function OscBridge() {
             const rRWrist = rotT(tRWrist);
             invoke("osc_update_trackers", {
               trackers: {
-                head: rHead ?? tHead ?? head,
-                chest: rChest ?? tChest ?? chest,
-                hips: rHips ?? tHips ?? hips,
-                l_wrist: rLWrist ?? tLWrist ?? l_wrist,
-                r_wrist: rRWrist ?? tRWrist ?? r_wrist,
+                head: emaPos("head", rHead ?? tHead ?? head) ?? undefined,
+                chest: emaPos("chest", rChest ?? tChest ?? chest) ?? undefined,
+                hips: emaPos("hips", rHips ?? tHips ?? hips) ?? undefined,
+                l_wrist: emaPos("l_wrist", rLWrist ?? tLWrist ?? l_wrist) ?? undefined,
+                r_wrist: emaPos("r_wrist", rRWrist ?? tRWrist ?? r_wrist) ?? undefined,
               },
             }).catch(() => {});
           }
@@ -601,12 +684,20 @@ export function OscBridge() {
           const head = visOk(u3.nose)
             ? { x: u3.nose!.x, y: u3.nose!.y, z: u3.nose!.z }
             : undefined;
-          const l_wrist = visOk(u3.lWrist)
+          let l_wrist = visOk(u3.lWrist)
             ? { x: u3.lWrist!.x, y: u3.lWrist!.y, z: u3.lWrist!.z }
             : undefined;
-          const r_wrist = visOk(u3.rWrist)
+          let r_wrist = visOk(u3.rWrist)
             ? { x: u3.rWrist!.x, y: u3.rWrist!.y, z: u3.rWrist!.z }
             : undefined;
+          // Prefer Hands wrists when fresh
+          {
+            const HANDS_TTL_MS = 180;
+            const L = handsRef.current.L;
+            const R = handsRef.current.R;
+            if (L && now - L.ts <= HANDS_TTL_MS) l_wrist = { ...L.p };
+            if (R && now - R.ts <= HANDS_TTL_MS) r_wrist = { ...R.p };
+          }
           const applyCalib = (v?: {
             x: number;
             y: number;
@@ -635,11 +726,11 @@ export function OscBridge() {
           const tRWrist = applyCalib(r_wrist);
           invoke("osc_update_trackers", {
             trackers: {
-              head: tHead ?? head,
-              chest: tChest ?? chest,
-              hips: tHips ?? hips,
-              l_wrist: tLWrist ?? l_wrist,
-              r_wrist: tRWrist ?? r_wrist,
+              head: emaPos("head", tHead ?? head) ?? undefined,
+              chest: emaPos("chest", tChest ?? chest) ?? undefined,
+              hips: emaPos("hips", tHips ?? hips) ?? undefined,
+              l_wrist: emaPos("l_wrist", tLWrist ?? l_wrist) ?? undefined,
+              r_wrist: emaPos("r_wrist", tRWrist ?? r_wrist) ?? undefined,
             },
           }).catch(() => {});
         }
@@ -697,6 +788,10 @@ export function OscBridge() {
         "motioncast:upper-body-3d",
         onUpper3d as EventListener,
       );
+      window.removeEventListener(
+        "motioncast:hands-3d",
+        onHands as EventListener,
+      );
       window.removeEventListener("motioncast:calibrate", onCalib);
       window.removeEventListener(
         "motioncast:tracker-calib-params",
@@ -717,6 +812,10 @@ export function OscBridge() {
       window.removeEventListener(
         "motioncast:metrics-enabled",
         onMetrics as EventListener,
+      );
+      window.removeEventListener(
+        "motioncast:pos-smoothing",
+        onPosSmoothing as EventListener,
       );
       cancelAnimationFrame(rafRef.current);
     };

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import "./App.css";
 import { CameraPreview } from "./features/camera/CameraPreview";
+import { CameraSettingsPanel } from "./features/camera/CameraSettingsPanel";
 import { VrmPlaceholder } from "./features/vrm/VrmPlaceholder";
 import { VrmViewer } from "./features/vrm/VrmViewer";
 import { IpcPing } from "./features/ipc/IpcPing";
@@ -8,9 +9,11 @@ import { OscTest } from "./features/osc/OscTest";
 import { EstimatorTest } from "./features/estimation/EstimatorTest";
 import { OscBridge } from "./features/osc/OscBridge";
 import { saveLocalStorageToConfig } from "./lib/config";
+import { SideRail } from "./features/ui/SideRail";
 
 function App() {
   const [showSidebar, setShowSidebar] = useState(true);
+  const sidebarRef = useRef<HTMLElement | null>(null);
   const [openMetrics, setOpenMetrics] = useState(true);
   const [cameraActive, setCameraActive] = useState(false);
   const [estFps, setEstFps] = useState<number>(0);
@@ -32,6 +35,14 @@ function App() {
     rate?: number;
     schema?: string;
   } | null>(null);
+  const [camVisible, setCamVisible] = useState<boolean>(() => {
+    try {
+      const raw = localStorage.getItem("camera.visible");
+      return raw == null ? true : raw !== "false";
+    } catch {
+      return true;
+    }
+  });
 
   useEffect(() => {
     const onOsc = (ev: Event) => {
@@ -134,6 +145,71 @@ function App() {
     }
   }, [openMetrics]);
 
+  // カメラ表示トグル（サイドバーのCamボタン）を購読
+  useEffect(() => {
+    const onUpdate = (ev: Event) => {
+      const ce = ev as CustomEvent<{ visible?: boolean }>;
+      if (typeof ce.detail?.visible === "boolean") setCamVisible(ce.detail.visible);
+    };
+    window.addEventListener(
+      "motioncast:camera-update-settings",
+      onUpdate as EventListener,
+    );
+    return () =>
+      window.removeEventListener(
+        "motioncast:camera-update-settings",
+        onUpdate as EventListener,
+      );
+  }, []);
+
+  // 初期描画後にレイアウト更新を一度発火（起動直後の計測を安定化）
+  useEffect(() => {
+    const fire = () => {
+      try {
+        window.dispatchEvent(new Event("resize"));
+        window.dispatchEvent(new CustomEvent("motioncast:layout-changed"));
+      } catch {
+        /* noop */
+      }
+    };
+    const id = requestAnimationFrame(() => requestAnimationFrame(fire));
+    return () => cancelAnimationFrame(id);
+  }, []);
+
+  // サイドバーの開閉に合わせてレイアウト更新イベントとresizeを発火
+  useEffect(() => {
+    const fire = () => {
+      try {
+        window.dispatchEvent(new Event("resize"));
+        window.dispatchEvent(new CustomEvent("motioncast:layout-changed"));
+      } catch {
+        /* noop */
+      }
+    };
+    // 2フレーム後に一度発火（幅トランジションの途中にも対応）
+    const id = requestAnimationFrame(() => requestAnimationFrame(fire));
+    return () => cancelAnimationFrame(id);
+  }, [showSidebar]);
+
+  // サイドバーのwidthトランジション終了時にも確実に発火
+  useEffect(() => {
+    const el = sidebarRef.current;
+    if (!el) return;
+    const fire = () => {
+      try {
+        window.dispatchEvent(new Event("resize"));
+        window.dispatchEvent(new CustomEvent("motioncast:layout-changed"));
+      } catch {
+        /* noop */
+      }
+    };
+    const onEnd = (e: TransitionEvent) => {
+      if (e.propertyName === "width") fire();
+    };
+    el.addEventListener("transitionend", onEnd);
+    return () => el.removeEventListener("transitionend", onEnd);
+  }, []);
+
   return (
     <main className="app-root">
       <OscBridge />
@@ -158,84 +234,86 @@ function App() {
       </header>
 
       <div className="app-container">
+        <SideRail
+          showSidebar={showSidebar}
+          onToggleSidebar={() => setShowSidebar((v) => !v)}
+        />
         <aside
           className={`sidebar ${showSidebar ? "open" : "closed"}`}
           aria-label="設定サイドバー"
+          ref={sidebarRef}
         >
           <div className="sidebar-inner">
             <h2 className="section-title">設定</h2>
-            <ul className="sidebar-list">
-              <li>カメラ設定（今後サイドバーへ統合）</li>
-              <li>VRMモデル（後日）</li>
-              <li>OSC送信（後日）</li>
-            </ul>
+            <div className="box" style={{ marginBottom: 8 }}>
+              <CameraSettingsPanel />
+            </div>
+            <div className="box" style={{ marginBottom: 8 }}>
+              <h2 className="section-title">推定テスト（スタブ）</h2>
+              <EstimatorTest />
+            </div>
+            <div className="box" style={{ marginBottom: 8 }}>
+              <h2 className="section-title">デバッグ: IPC Ping</h2>
+              <IpcPing />
+            </div>
+            <div className="box" style={{ marginBottom: 8 }}>
+              <h2 className="section-title">送信テスト（OSC）</h2>
+              <OscTest />
+            </div>
+            <section className="metrics-section">
+              <button
+                type="button"
+                className="metrics-toggle"
+                onClick={() => {
+                  const next = !openMetrics;
+                  setOpenMetrics(next);
+                  try {
+                    window.dispatchEvent(
+                      new CustomEvent("motioncast:metrics-enabled", {
+                        detail: next,
+                      }),
+                    );
+                  } catch {
+                    /* noop */
+                  }
+                }}
+                aria-expanded={openMetrics}
+                aria-controls="metrics"
+              >
+                メトリクス / ログ
+              </button>
+              {openMetrics && (
+                <div id="metrics" className="metrics-body">
+                  <pre className="metrics-pre">
+                    {`アプリ起動: OK  カメラ: ${cameraActive ? "稼働中" : "停止中"}  OSC送信: ${
+                      oscInfo?.sending
+                        ? `送信中 → udp://${oscInfo.addr ?? "?"}:${oscInfo.port ?? "?"} @ ${oscInfo.rate ?? "?"}fps [${oscInfo.schema ?? "?"}]`
+                        : "停止中"
+                    }`}
+                  </pre>
+                  <pre className="metrics-pre">
+                    {`推定FPS: ${estFps} / 送信: ${sendHz}Hz / 平均遅延: ${meanLatency.toFixed(1)}ms | 安定化: hold ${
+                      stab.hold
+                    } / fade ${stab.fade} / reacq ${stab.reacq}`}
+                  </pre>
+                </div>
+              )}
+            </section>
           </div>
         </aside>
 
         <section className="content">
           <div className="content-grid">
-            <div className="box">
+            <div className="box" style={{ display: camVisible ? "block" : "none" }}>
               <h2 className="section-title">カメラプレビュー</h2>
-              <CameraPreview />
+              <CameraPreview inlineControls="minimal" />
             </div>
             <div className="box">
               <h2 className="section-title">VRMビューア</h2>
               <VrmPlaceholder />
               <VrmViewer />
             </div>
-            <div className="box">
-              <h2 className="section-title">推定テスト（スタブ）</h2>
-              <EstimatorTest />
-            </div>
-            <div className="box">
-              <h2 className="section-title">デバッグ: IPC Ping</h2>
-              <IpcPing />
-            </div>
-            <div className="box">
-              <h2 className="section-title">送信テスト（OSC）</h2>
-              <OscTest />
-            </div>
           </div>
-
-          <section className="metrics-section">
-            <button
-              type="button"
-              className="metrics-toggle"
-              onClick={() => {
-                const next = !openMetrics;
-                setOpenMetrics(next);
-                try {
-                  window.dispatchEvent(
-                    new CustomEvent("motioncast:metrics-enabled", {
-                      detail: next,
-                    }),
-                  );
-                } catch {
-                  /* noop */
-                }
-              }}
-              aria-expanded={openMetrics}
-              aria-controls="metrics"
-            >
-              メトリクス / ログ
-            </button>
-            {openMetrics && (
-              <div id="metrics" className="metrics-body">
-                <pre className="metrics-pre">
-                  {`アプリ起動: OK  カメラ: ${cameraActive ? "稼働中" : "停止中"}  OSC送信: ${
-                    oscInfo?.sending
-                      ? `送信中 → udp://${oscInfo.addr ?? "?"}:${oscInfo.port ?? "?"} @ ${oscInfo.rate ?? "?"}fps [${oscInfo.schema ?? "?"}]`
-                      : "停止中"
-                  }`}
-                </pre>
-                <pre className="metrics-pre">
-                  {`推定FPS: ${estFps} / 送信: ${sendHz}Hz / 平均遅延: ${meanLatency.toFixed(1)}ms | 安定化: hold ${
-                    stab.hold
-                  } / fade ${stab.fade} / reacq ${stab.reacq}`}
-                </pre>
-              </div>
-            )}
-          </section>
         </section>
       </div>
     </main>
